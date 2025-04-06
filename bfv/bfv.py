@@ -32,16 +32,20 @@ class BFV():
 
     def key_gen(self) -> tuple[np.array, PolynomialRing]:
         '''
-        Returns sk (secret key) in R_2, and pk (public key) in R_q
+        Returns (sk, pk, ek)
+        sk (secret key) is in R_2
+        pk (public key) = (pk1, pk2) is in (R_q, R_q)
+        ek (evaluation key) = (ek1, ek2) is in (R_q, R_q)
         '''
         sk = np.array([np.random.choice([-1, 0, 1]) for _ in range(self.n)])
         xbar = self.R_q.gen()
-        pk2 = sum([np.random.randint(low=0, high=self.q) * (xbar ** i) for i in range(self.n)])
-        
-        sk_q = self.R_q(list(sk))
-        pk1 = -(pk2*sk_q + self._sample_error_dtbn())
+        a = sum([np.random.randint(low=0, high=self.q) * (xbar ** i) for i in range(self.n)])
+        sk_q = self.R_q(list(sk))  # sk cast to R_q
+        pk1 = -(a*sk_q + self._sample_error_dtbn())
+        pk2 = a
         pk = (pk1, pk2)
-        return (sk, pk)
+        ek = (pk1 + sk_q ** 2, pk2)
+        return (sk, pk, ek)
 
 
     def encrypt(self, pk, m) -> PolynomialRing:
@@ -78,6 +82,7 @@ t = 5
 q = 11
 
 bfv = BFV(t, q, n)
-(sk, pk) = bfv.key_gen()
+(sk, pk, ek) = bfv.key_gen()
 print(sk)
 print(pk)
+print(ek)
