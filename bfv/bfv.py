@@ -65,17 +65,20 @@ class BFV():
         If c1 is an encryption of m1 and c2 is an encryption of m2,
         outputs a ciphertext c3 encrypting (m1 + m2)
         '''
-        pass
+        return (c1[0]+c2[0], c1[1]+c2[1])
     
     def eval_mult(self, c1, c2) -> PolynomialRing:
         '''
         If c1 is an encryption of m1 and c2 an encryption of m2,
         outputs a ciphertext encrypting (m1 * m2)
         '''
-        pass
+        a = self.t*(c1[0]*c2[0])/self.q
+        b = self.t*(c1[0]*c2[1] + c1[1]*c2[0])/self.q
+        c = self.t*(c1[1]*c2[1])/self.q
+        return (a, b, c)
 
-    def relinearize(self, c) -> PolynomialRing:
-        pass
+    def relinearize(self, c, ek) -> PolynomialRing:
+        return (c[0]+ek*c[2], c[1]+ek*c[2])
 
 n = 4
 t = 5
