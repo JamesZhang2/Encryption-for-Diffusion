@@ -29,8 +29,23 @@ class BFV():
         '''
         sampler = DiscreteGaussianDistributionIntegerSampler(sigma=sigma, c=mu, tau=beta)
         return sampler()
+    
+    def _sample_from_R2(self):
+        '''
+        Draws a random sample from R_2, a polynomial of degree n with coefficients in [-1, 0, 1]
+        '''
+        return np.array([np.random.choice([-1, 0, 1]) for _ in range(self.n)])
 
-    def key_gen(self) -> tuple[np.array, PolynomialRing]:
+    def array_to_P_ring(self, arr):
+        '''
+        Converts a np.array to a P_ring element, where arr[i] is the coefficient of x^i
+        '''
+        if len(arr) > self.n:
+            raise ValueError("Input array length larger than dimension")
+        xbar = self.P_ring.gen()
+        return sum([(arr[i] % self.t) * xbar ** i for i in range(len(arr))])
+
+    def key_gen(self): # -> tuple[np.array, C_ring, C_ring]
         '''
         Returns (sk, pk, ek)
         sk (secret key) is in R_2
@@ -48,26 +63,35 @@ class BFV():
         return (sk, pk, ek)
 
 
-    def encrypt(self, pk, m) -> PolynomialRing:
+    def encrypt(self, pk, m): # -> C_ring
         '''
         Encrypts m (message) into c (its ciphertext) using pk (the public key)
         '''
-        pass
+        u = self._sample_from_R2()
+        u_q = self.R_q(list(u))  # cast to R_q
+        pk1, pk2 = pk
+        delta = self.q // self.t
+        c1 = pk1 * u_q + self._sample_error_dtbn() + delta * self.R_q(m.list())
+        c2 = pk2 * u_q + self._sample_error_dtbn()
+        return (c1, c2)
 
-    def decrypt(self, sk, c) -> PolynomialRing:
+    def decrypt(self, sk, c): # -> P_ring
         '''
         Decrypts c (ciphertext) into m (its message) using sk (the secret key)
         '''
-        pass
+        c1, c2 = c
+        sk_q = self.R_q(list(sk))  # sk cast to R_q
+        coeffs = np.round(np.array((c1 + c2 * sk_q).list(), dtype=int) * self.t / self.q).astype(int)
+        return self.array_to_P_ring(coeffs)
     
-    def eval_add(self, c1, c2) -> PolynomialRing:
+    def eval_add(self, c1, c2): # -> C_ring
         '''
         If c1 is an encryption of m1 and c2 is an encryption of m2,
         outputs a ciphertext c3 encrypting (m1 + m2)
         '''
         return (c1[0]+c2[0], c1[1]+c2[1])
     
-    def eval_mult(self, c1, c2) -> PolynomialRing:
+    def eval_mult(self, c1, c2): # -> tuple[R_q, R_q, R_q]
         '''
         If c1 is an encryption of m1 and c2 an encryption of m2,
         outputs a ciphertext encrypting (m1 * m2)
@@ -77,15 +101,21 @@ class BFV():
         c = self.t*(c1[1]*c2[1])/self.q
         return (a, b, c)
 
-    def relinearize(self, c, ek) -> PolynomialRing:
+    def relinearize(self, c, ek): # C_ring:
         return (c[0]+ek*c[2], c[1]+ek*c[2])
 
-n = 4
-t = 5
-q = 11
+n = 4  # degree
+t = 5  # plaintext coefficient
+q = 11  # ciphertext coefficient
 
 bfv = BFV(t, q, n)
 (sk, pk, ek) = bfv.key_gen()
-print(sk)
-print(pk)
-print(ek)
+print("sk:", sk)
+print("pk:", pk)
+print("ek:", ek)
+m = bfv.array_to_P_ring(np.array([3, 1, 2, 4]))
+print("m:", m)
+enc = bfv.encrypt(pk, m)
+print("Encrypted m:", enc)
+dec = bfv.decrypt(sk, enc)
+print("Decrypted m:", dec)
