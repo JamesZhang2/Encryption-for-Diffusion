@@ -105,15 +105,15 @@ class BFV():
         return (c[0]+ek*c[2], c[1]+ek*c[2])
 
 n = 4  # degree
-t = 5  # plaintext coefficient
-q = 11  # ciphertext coefficient
+t = 7  # plaintext coefficient
+q = 31  # ciphertext coefficient
 
 bfv = BFV(t, q, n)
 (sk, pk, ek) = bfv.key_gen()
 print("sk:", sk)
 print("pk:", pk)
 print("ek:", ek)
-m = bfv.array_to_P_ring(np.array([3, 1, 2, 4]))
+m = bfv.array_to_P_ring(np.array([3, 1, 2, 6]))
 print("m:", m)
 enc = bfv.encrypt(pk, m)
 print("Encrypted m:", enc)
