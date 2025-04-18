@@ -565,6 +565,7 @@ class UNet(nn.Module):
         skip_connections = []
 
         out = self.down_conv(x)
+        skip_connections.append(out)
 
         for block in self.down_blocks:
             match block:
@@ -592,7 +593,6 @@ class UNet(nn.Module):
                 case ResnetBlock() | ResnetAndAttention():
                     skip = skip_connections.pop()
                     out = torch.cat((out, skip), dim=1)
-                    out = block(out, t_embs, y_emb)
                     out = block(out, t_embs, y_emb)
                 case _:
                     raise ValueError("Unknown block type")
