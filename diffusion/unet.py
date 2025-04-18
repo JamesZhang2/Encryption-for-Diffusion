@@ -448,8 +448,8 @@ class UNet(nn.Module):
             ResnetBlock(c, c, num_groups, emb_dim),
             DownSample(c),
             # Layer 2
-            ResnetAndAttentionBlock(c, c * 2, num_groups, emb_dim),
-            ResnetAndAttentionBlock(c * 2, c * 2, num_groups, emb_dim),
+            ResnetAndAttention(c, c * 2, num_groups, emb_dim),
+            ResnetAndAttention(c * 2, c * 2, num_groups, emb_dim),
             DownSample(c * 2),
             # Layer 3
             ResnetBlock(c * 2, c * 2, num_groups, emb_dim),
@@ -478,9 +478,9 @@ class UNet(nn.Module):
             ResnetBlock(c * 4, c * 2, num_groups, emb_dim),
             UpSample(c * 2),
             # Layer 2
-            ResnetAndAttentionBlock(c * 4, c * 2, num_groups, emb_dim),
-            ResnetAndAttentionBlock(c * 4, c * 2, num_groups, emb_dim),
-            ResnetAndAttentionBlock(c * 3, c * 2, num_groups, emb_dim),
+            ResnetAndAttention(c * 4, c * 2, num_groups, emb_dim),
+            ResnetAndAttention(c * 4, c * 2, num_groups, emb_dim),
+            ResnetAndAttention(c * 3, c * 2, num_groups, emb_dim),
             UpSample(c * 2),
             ResnetBlock(c * 3, c, num_groups, emb_dim),
             ResnetBlock(c * 2, c, num_groups, emb_dim),
@@ -520,7 +520,7 @@ class UNet(nn.Module):
             match type(block):
                 case DownSample():
                     out = block(out)
-                case ResnetBlock() | ResnetAndAttentionBlock():
+                case ResnetBlock() | ResnetAndAttention():
                     out = block(out, t_embs, y_emb)
                 case _:
                     raise ValueError("Unknown block type")
@@ -539,7 +539,7 @@ class UNet(nn.Module):
             match type(block):
                 case UpSample():
                     out = block(out)
-                case ResnetBlock() | ResnetAndAttentionBlock():
+                case ResnetBlock() | ResnetAndAttention():
                     skip = skip_connections.pop()
                     out = torch.cat((out, skip), dim=1)
                     out = block(out, t_embs, y_emb)
