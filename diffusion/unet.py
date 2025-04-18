@@ -407,18 +407,17 @@ class DownSample(nn.Module):
     convolution-based method.
     """
 
-    def __init__(self, in_channels: int, out_channels: int):
+    def __init__(self, channels: int):
         super().__init__()
         """Initializes the DownSample module.
 
         Args:
-            in_channel: Number of input channels
-            out_channel: Number of output channels
+            channels: Number of channels
         """
 
         self.conv = nn.Conv2d(
-            in_channels,
-            out_channels,
+            channels,
+            channels,
             kernel_size=3,
             stride=2,
             padding=1
@@ -437,18 +436,17 @@ class UpSample(nn.Module):
     tensor.
     """
 
-    def __init__(self, in_channels: int, out_channels: int):
+    def __init__(self, channels: int):
         super().__init__()
         """Initializes the UpSample module.
 
         Args:
-            in_channel: Number of input channels
-            out_channel: Number of output channels
+            channel: Number of input channels
         """
 
         self.conv = nn.Conv2d(
-            in_channels,
-            out_channels,
+            channels,
+            channels,
             kernel_size=3,
             stride=1,
             padding="same"
