@@ -8,7 +8,9 @@ def run_tests(test_fn):
     test_fn takes bfv, n, param_t, param_q and runs some test
     '''
     for n in [5, 10, 20, 40, 80]:
-        for param_t in [5, 10, 15, 20, 25, 50]:
+        for param_t in [5, 10, 15, 20, 40]:
+    # for n in [5]:
+        # for param_t in [21]:
             param_q = param_t * 2  # Note: change this to explore how param_q affects relative error!
             # In general, as param_q gets larger w.r.t. param_t, relative error gets smaller.
             bfv = BFV(n, param_t, param_q)
@@ -20,7 +22,9 @@ def encrypt_then_decrypt_test_fn(bfv, n, param_t, param_q):
     message = rng.integers(low=0, high=bfv.t, size=n)
     m = bfv.array_to_P_ring(message)
     enc = bfv.encrypt(pk, m)
+    # print(enc)
     dec = bfv.decrypt(sk, enc)
+    # print(dec)
 
     print("(n, param_t, param_q) =", (n, param_t, param_q))
     err = bfv.diff_P_ring(m, dec)
@@ -31,7 +35,7 @@ def encrypt_then_decrypt_test_fn(bfv, n, param_t, param_q):
     print("max relative error (w.r.t. 2^param_t):", max_rel_err)
     
     # Feel free to change this. I'm not sure what the theoretical error should be.
-    assert max_rel_err < max(20 * 2 ** (-param_t), 1e-7), (message, bfv.poly_to_array(dec), err)
+    assert max_rel_err < max(20 * 2 ** (-param_t), 1e-7), f"original message: {message}\ndecrypted message: {bfv.poly_to_array(dec)}\nerror: {err}"
     print()
 
 def encrypt_then_decrypt():
@@ -63,6 +67,7 @@ def eval_add_test_fn(bfv, n, param_t, param_q):
 
     # Feel free to change this. I'm not sure what the theoretical error should be.
     assert max_rel_err < max(20 * 2 ** (-param_t), 1e-7), (bfv.poly_to_array(m1 + m2), bfv.poly_to_array(dec), err)
+    print()
 
 def test_eval_add():
     print("Running test_eval_add...")

@@ -2,6 +2,7 @@ from sage.all import *
 import numpy as np
 from sage.stats.distributions.discrete_gaussian_integer import DiscreteGaussianDistributionIntegerSampler
 import sympy
+import random
 
 class BFV():
     def __init__(self, n, param_t=None, param_q=None, t=None, q=None):
@@ -40,6 +41,15 @@ class BFV():
             raise ValueError("Input array length larger than dimension")
         xbar = self.P_ring.gen()
         return sum([(arr[i] % self.t) * xbar ** i for i in range(len(arr))])
+    
+    def list_to_P_ring(self, lst):
+        '''
+        Converts a Python list to a P_ring element, where lst[i] is the coefficient of x^i
+        '''
+        if len(lst) > self.n:
+            raise ValueError("Input list length larger than dimension")
+        xbar = self.P_ring.gen()
+        return sum([(lst[i] % self.t) * xbar ** i for i in range(len(lst))])
 
     def poly_to_array(self, poly):
         '''
@@ -84,7 +94,7 @@ class BFV():
         '''
         sk = np.array([np.random.choice([-1, 0, 1]) for _ in range(self.n)])
         xbar = self.R_q.gen()
-        a = sum([np.random.randint(low=0, high=self.q) * (xbar ** i) for i in range(self.n)])
+        a = sum([random.randint(0, self.q) * (xbar ** i) for i in range(self.n)])
         sk_q = self.R_q(list(sk))  # sk cast to R_q
         pk1 = -(a*sk_q + self._sample_error_dtbn())
         pk2 = a
@@ -98,10 +108,17 @@ class BFV():
         '''
         u = self._sample_from_R2()
         u_q = self.R_q(list(u))  # cast to R_q
+        # print("u_q:", u_q)
+        # print("pk:", pk)
+        # print("m:", m)
+        # print("t:", self.t)
+        # print("q:", self.q)
         pk1, pk2 = pk
         delta = self.q // self.t
+        # print("delta:", delta)
         c1 = pk1 * u_q + self._sample_error_dtbn() + delta * self.R_q(m.list())
         c2 = pk2 * u_q + self._sample_error_dtbn()
+        # print("c1, c2:", c1, c2)
         return (c1, c2)
 
     def decrypt(self, sk, c): # -> P_ring
@@ -110,8 +127,19 @@ class BFV():
         '''
         c1, c2 = c
         sk_q = self.R_q(list(sk))  # sk cast to R_q
-        coeffs = np.round(np.array((c1 + c2 * sk_q).list(), dtype=int) * self.t / self.q).astype(int)
-        return self.array_to_P_ring(coeffs)
+        # print("sk_q:", sk_q)
+        # print("arr:", np.array((c1 + c2 * sk_q).list(), dtype=int))
+        # print("t:", self.t)
+        # print("q:", self.q)
+        # print("arr * t / q:", np.array((c1 + c2 * sk_q).list(), dtype=int) * self.t / self.q)
+        lst = (c1 + c2 * sk_q).list()
+        # print("lst:", lst)
+        # print("times:", lst[0] * self.t)
+        # print("q:", self.q)
+        # print("times div:", int(int(lst[0]) * int(self.t) / int(self.q)))
+        coeffs = [int(int(num) * int(self.t) / int(self.q)) for num in (c1 + c2 * sk_q).list()]
+        # print(coeffs)
+        return self.list_to_P_ring(coeffs)
     
     def eval_add(self, ek, c1, c2): # -> C_ring
         '''
