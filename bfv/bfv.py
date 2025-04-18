@@ -1,17 +1,24 @@
 from sage.all import *
 import numpy as np
 from sage.stats.distributions.discrete_gaussian_integer import DiscreteGaussianDistributionIntegerSampler
+import sympy
 
 class BFV():
-    def __init__(self, t, q, n):
+    def __init__(self, n, param_t=None, param_q=None, t=None, q=None):
         '''
-        t is the plaintext coefficient, must be prime
-        q is the ciphertext coefficient, must be prime
-        n is the degree (ring dimension), usually a power of 2
+        if param_t is specified, randomly generate a prime for t with that number of bits.
+        Similar for param_q.
+        t is the plaintext coefficient; must be prime
+        q is the ciphertext coefficient; must be prime
+        n is the degree (ring dimension); usually a power of 2
         Usually q >> t
         plaintext ring: P = Z_t[x]/(x^n + 1)
         ciphertext ring: C = R_q X R_q where R_q = Z_q[x]/(x^n + 1)
         '''
+        if param_t != None:
+            t = sympy.randprime(2 ** param_t, 2 ** (param_t + 1))
+        if param_q != None:
+            q = sympy.randprime(2 ** param_q, 2 ** (param_q + 1))
         self.t = t
         self.q = q
         self.n = n
@@ -44,6 +51,12 @@ class BFV():
             raise ValueError("Input array length larger than dimension")
         xbar = self.P_ring.gen()
         return sum([(arr[i] % self.t) * xbar ** i for i in range(len(arr))])
+
+    def poly_to_array(self, poly):
+        '''
+        Converts a polynomial to an array, with the ith element being the coefficient of x^i
+        '''
+        return np.array(list(poly), dtype=int)
 
     def key_gen(self): # -> tuple[np.array, C_ring, C_ring]
         '''
@@ -104,18 +117,19 @@ class BFV():
     def relinearize(self, c, ek): # C_ring:
         return (c[0]+ek*c[2], c[1]+ek*c[2])
 
-n = 4  # degree
-t = 7  # plaintext coefficient
-q = 31  # ciphertext coefficient
+# n = 4  # degree
+# t = 31  # plaintext coefficient
+# # q = 1217  # ciphertext coefficient
+# q = 139
 
-bfv = BFV(t, q, n)
-(sk, pk, ek) = bfv.key_gen()
-print("sk:", sk)
-print("pk:", pk)
-print("ek:", ek)
-m = bfv.array_to_P_ring(np.array([3, 1, 2, 6]))
-print("m:", m)
-enc = bfv.encrypt(pk, m)
-print("Encrypted m:", enc)
-dec = bfv.decrypt(sk, enc)
-print("Decrypted m:", dec)
+# bfv = BFV(n=8, param_t=6, param_q=10)
+# (sk, pk, ek) = bfv.key_gen()
+# print("sk:", sk)
+# print("pk:", pk)
+# print("ek:", ek)
+# m = bfv.array_to_P_ring(np.array([12, 27, 2, 17]))
+# print("m:", m)
+# enc = bfv.encrypt(pk, m)
+# print("Encrypted m:", enc)
+# dec = bfv.decrypt(sk, enc)
+# print("Decrypted m:", dec)
