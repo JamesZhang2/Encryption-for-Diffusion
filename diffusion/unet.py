@@ -567,7 +567,7 @@ class UNet(nn.Module):
         out = self.down_conv(x)
 
         for block in self.down_blocks:
-            match type(block):
+            match block:
                 case DownSample():
                     out = block(out)
                 case ResnetBlock() | ResnetAndAttention():
@@ -577,7 +577,7 @@ class UNet(nn.Module):
             skip_connections.append(out)
 
         for block in self.mid_blocks:
-            match type(block):
+            match block:
                 case ResnetBlock():
                     out = block(out, t_embs, y_emb)
                 case AttentionBlock():
@@ -586,7 +586,7 @@ class UNet(nn.Module):
                     raise ValueError("Unknown block type")
 
         for block in self.up_blocks:
-            match type(block):
+            match block:
                 case UpSample():
                     out = block(out)
                 case ResnetBlock() | ResnetAndAttention():
@@ -610,6 +610,6 @@ if __name__ == "__main__":
     unet = UNet(source_channel=3, unet_base_channel=64, num_groups=32)
     x = torch.randn(1, 3, 256, 256)
     t = torch.tensor([0])
-    y_emb = torch.randn(1, 64)
+    y_emb = torch.randn(1, 256)
     out = unet(x, t, y_emb)
     print(out.shape)
