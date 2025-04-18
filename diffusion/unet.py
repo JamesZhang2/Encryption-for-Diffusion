@@ -409,6 +409,12 @@ class DownSample(nn.Module):
 
     def __init__(self, in_channels: int, out_channels: int):
         super().__init__()
+        """Initializes the DownSample module.
+
+        Args:
+            in_channel: Number of input channels
+            out_channel: Number of output channels
+        """
 
         self.conv = nn.Conv2d(
             in_channels,
@@ -433,6 +439,12 @@ class UpSample(nn.Module):
 
     def __init__(self, in_channels: int, out_channels: int):
         super().__init__()
+        """Initializes the UpSample module.
+
+        Args:
+            in_channel: Number of input channels
+            out_channel: Number of output channels
+        """
 
         self.conv = nn.Conv2d(
             in_channels,
