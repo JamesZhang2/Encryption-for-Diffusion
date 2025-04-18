@@ -400,13 +400,53 @@ class ResnetAndAttention(nn.Module):
 
 
 class DownSample(nn.Module):
-    def __init__(self):
-        pass
+    """
+    A down sampling module.
+
+    This module downsamples the input tensor by a factor of 2 using a 
+    convolution-based method.
+    """
+
+    def __init__(self, in_channels: int, out_channels: int):
+        super().__init__()
+
+        self.conv = nn.Conv2d(
+            in_channels,
+            out_channels,
+            kernel_size=3,
+            stride=2,
+            padding=1
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.conv(x)
 
 
 class UpSample(nn.Module):
-    def __init__(self):
-        pass
+    """
+    A up sampling module.
+
+    This module upsamples the input tensor by a factor of 2 using nearest 
+    neighbor interpolation. It then applies a convolution to the upsampled 
+    tensor.
+    """
+
+    def __init__(self, in_channels: int, out_channels: int):
+        super().__init__()
+
+        self.conv = nn.Conv2d(
+            in_channels,
+            out_channels,
+            kernel_size=3,
+            stride=1,
+            padding="same"
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        out = F.interpolate(x, scale_factor=2, mode="nearest")
+        out = self.conv(out)
+
+        return out
 
 
 class UNet(nn.Module):
@@ -554,9 +594,6 @@ class UNet(nn.Module):
         out = self.up_conv(out)
 
         return out
-
-    def __call__(self, x, t, y_emb):
-        return self.forward(x, t, y_emb)
 
 
 if __name__ == "__main__":
