@@ -30,18 +30,7 @@ class BFV():
         self.R_q = Zqx.quotient(x ** n + 1)
         self.C_ring = (self.R_q, self.R_q)
 
-    def _sample_error_dtbn(self, mu=0, sigma=8/sqrt(2 * pi), beta=19):
-        '''
-        Draws a random sample from the error distribution (discrete Gaussian) with the given parameters
-        '''
-        sampler = DiscreteGaussianDistributionIntegerSampler(sigma=sigma, c=mu, tau=beta)
-        return sampler()
-    
-    def _sample_from_R2(self):
-        '''
-        Draws a random sample from R_2, a polynomial of degree n with coefficients in [-1, 0, 1]
-        '''
-        return np.array([np.random.choice([-1, 0, 1]) for _ in range(self.n)])
+    ##### Utility functions #####
 
     def array_to_P_ring(self, arr):
         '''
@@ -57,6 +46,34 @@ class BFV():
         Converts a polynomial to an array, with the ith element being the coefficient of x^i
         '''
         return np.array(list(poly), dtype=int)
+
+    def diff_P_ring(self, p1, p2) -> np.array:
+        '''
+        Requires: p1 and p2 are polynomials of the P_ring
+        Returns an array whose ith entry is the absolute difference
+        between the x^i coefficient of p1 and p2, where we consider the wrap-around
+        and take the smaller of the two differences.
+        '''
+        arr1 = self.poly_to_array(p1)
+        arr2 = self.poly_to_array(p2)
+        return np.min(np.array([abs(arr1 - arr2), abs(arr1 + self.t - arr2), abs(arr1 - self.t - arr2)]), axis=0)
+
+    ##### Functions to sample from distributions #####
+
+    def _sample_error_dtbn(self, mu=0, sigma=8/sqrt(2 * pi), beta=19):
+        '''
+        Draws a random sample from the error distribution (discrete Gaussian) with the given parameters
+        '''
+        sampler = DiscreteGaussianDistributionIntegerSampler(sigma=sigma, c=mu, tau=beta)
+        return sampler()
+    
+    def _sample_from_R2(self):
+        '''
+        Draws a random sample from R_2, a polynomial of degree n with coefficients in [-1, 0, 1]
+        '''
+        return np.array([np.random.choice([-1, 0, 1]) for _ in range(self.n)])
+
+    ##### Functions for encryption #####
 
     def key_gen(self): # -> tuple[np.array, C_ring, C_ring]
         '''
@@ -74,7 +91,6 @@ class BFV():
         pk = (pk1, pk2)
         ek = (pk1 + sk_q ** 2, pk2)
         return (sk, pk, ek)
-
 
     def encrypt(self, pk, m): # -> C_ring
         '''
@@ -97,14 +113,14 @@ class BFV():
         coeffs = np.round(np.array((c1 + c2 * sk_q).list(), dtype=int) * self.t / self.q).astype(int)
         return self.array_to_P_ring(coeffs)
     
-    def eval_add(self, c1, c2): # -> C_ring
+    def eval_add(self, ek, c1, c2): # -> C_ring
         '''
         If c1 is an encryption of m1 and c2 is an encryption of m2,
         outputs a ciphertext c3 encrypting (m1 + m2)
         '''
         return (c1[0]+c2[0], c1[1]+c2[1])
     
-    def eval_mult(self, c1, c2): # -> tuple[R_q, R_q, R_q]
+    def eval_mult(self, ek, c1, c2): # -> tuple[R_q, R_q]
         '''
         If c1 is an encryption of m1 and c2 an encryption of m2,
         outputs a ciphertext encrypting (m1 * m2)
@@ -112,9 +128,11 @@ class BFV():
         a = self.t*(c1[0]*c2[0])/self.q
         b = self.t*(c1[0]*c2[1] + c1[1]*c2[0])/self.q
         c = self.t*(c1[1]*c2[1])/self.q
-        return (a, b, c)
+        return self._relinearize(ek, (a, b, c))
 
-    def relinearize(self, c, ek): # C_ring:
+    # TODO: Implement eval_add_const and eval_mult_const - should be trivial
+
+    def _relinearize(self, ek, c): # C_ring:
         return (c[0]+ek*c[2], c[1]+ek*c[2])
 
 # n = 4  # degree
