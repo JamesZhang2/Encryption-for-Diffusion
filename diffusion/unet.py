@@ -38,7 +38,8 @@ class SinusoidalPositionalEncoding(nn.Module):
 
         self.register_buffer(
             'inv_freq',
-            1.0 / (10_000 ** (torch.arange(0, base_dim, 2).float() / base_dim)),
+            1.0 / (10_000 ** (torch.arange(0, base_dim,
+                   2).float() / base_dim)),
             persistent=False
         )
 
@@ -119,7 +120,7 @@ class PositionalEncoding(SinusoidalPositionalEncoding):
             2. Apply first linear transform + SiLU activation
             3. Apply second linear transform
         """
-        x = super().forward(timesteps)
+        x = super().forward(timesteps).to(timesteps.device)
         x = self.linear1(x)
         x = F.silu(x)
         x = self.linear2(x)
@@ -607,9 +608,10 @@ class UNet(nn.Module):
 
 
 if __name__ == "__main__":
-    unet = UNet(source_channel=3, unet_base_channel=64, num_groups=32)
-    x = torch.randn(1, 3, 256, 256)
-    t = torch.tensor([0])
-    y_emb = torch.randn(1, 256)
+    unet = UNet(source_channel=3, unet_base_channel=64,
+                num_groups=32).to('mps')
+    x = torch.randn(1, 3, 256, 256).to('mps')
+    t = torch.tensor([0]).to('mps')
+    y_emb = torch.randn(1, 256).to('mps')
     out = unet(x, t, y_emb)
     print(out.shape)
