@@ -33,6 +33,14 @@ class BFV():
 
     ##### Utility functions #####
 
+    def center_mod_q(self, x):
+        q = self.q
+        x = int(x) % q
+        return x if x < q // 2 else x - q
+
+    def round_half_up(self, i):
+        return int(i + 0.5) if i >= 0 else int(i - 0.5)
+
     def array_to_P_ring(self, arr):
         '''
         Converts a np.array to a P_ring element, where arr[i] is the coefficient of x^i
@@ -99,7 +107,14 @@ class BFV():
         pk1 = -(a*sk_q + self._sample_error_dtbn())
         pk2 = a
         pk = (pk1, pk2)
-        ek = (pk1 + sk_q ** 2, pk2)
+        delta = self.q // self.t
+        s2 = sk_q * sk_q
+        a = self.R_q.random_element()
+        e1 = self._sample_error_dtbn()
+        e2 = self._sample_error_dtbn()
+        ek1 = -(a * sk_q + e1) + delta * s2
+        ek2 = a + e2
+        ek = (ek1, ek2)
         return (sk, pk, ek)
 
     def encrypt(self, pk, m): # -> C_ring
@@ -137,7 +152,8 @@ class BFV():
         # print("times:", lst[0] * self.t)
         # print("q:", self.q)
         # print("times div:", int(int(lst[0]) * int(self.t) / int(self.q)))
-        coeffs = [int(int(num) * int(self.t) / int(self.q)) for num in (c1 + c2 * sk_q).list()]
+        coeffs = [self.round_half_up(int(num) * self.t / self.q) % self.t
+          for num in (c1 + c2 * sk_q).list()]
         # print(coeffs)
         return self.list_to_P_ring(coeffs)
     
@@ -153,29 +169,61 @@ class BFV():
         If c1 is an encryption of m1 and c2 an encryption of m2,
         outputs a ciphertext encrypting (m1 * m2)
         '''
-        a = self.t*(c1[0]*c2[0])/self.q
-        b = self.t*(c1[0]*c2[1] + c1[1]*c2[0])/self.q
-        c = self.t*(c1[1]*c2[1])/self.q
-        return self._relinearize(ek, (a, b, c))
-
-    # TODO: Implement eval_add_const and eval_mult_const - should be trivial
+        ls = []
+        delt = self.q // self.t
+        scal = 1 / delt
+        Zq = Integers(self.q)
+        x = self.R_q.gen()
+        for i in range(3):
+            if i==0:
+                p_R = c1[0]*c2[0]
+            elif i==1:
+                p_R = c1[0]*c2[1] + c1[1]*c2[0]
+            else:
+                p_R = c1[1]*c2[1]
+            lifted = p_R.lift()
+            coeffs = [Zq(self.round_half_up(scal * int(c))) for c in lifted.coefficients(sparse=False)]
+            ls.append(self.R_q(sum(c * x**j for j, c in enumerate(coeffs))))
+        return self._relinearize(ek, tuple(ls))
 
     def _relinearize(self, ek, c): # C_ring:
-        return (c[0]+ek*c[2], c[1]+ek*c[2])
+        c0, c1, c2 = c
+        ek1, ek2 = ek
+        return (
+            c0 + ek1 * c2,
+            c1 + ek2 * c2
+        )
 
-# n = 4  # degree
-# t = 31  # plaintext coefficient
-# # q = 1217  # ciphertext coefficient
-# q = 139
+    def eval_add_const(self, c, n, pk, ek):
+        '''
+        Adds the constant integer n to the ciphertext c
+        '''
+        pol = self._polynomialize(n)
+        cons = self.encrypt(pk, pol)
+        return self.eval_add(ek, c, cons)
 
-# bfv = BFV(n=8, param_t=6, param_q=10)
-# (sk, pk, ek) = bfv.key_gen()
-# print("sk:", sk)
-# print("pk:", pk)
-# print("ek:", ek)
-# m = bfv.array_to_P_ring(np.array([12, 27, 2, 17]))
-# print("m:", m)
-# enc = bfv.encrypt(pk, m)
-# print("Encrypted m:", enc)
-# dec = bfv.decrypt(sk, enc)
-# print("Decrypted m:", dec)
+    def eval_mult_const(self, c, n, pk, ek):
+        '''
+        Adds the constant integer n to the ciphertext c
+        '''
+        pol = self._polynomialize(n)
+        cons = self.encrypt(pk, pol)
+        return self.eval_mult(ek, c, cons)
+
+    def _polynomialize(self, n):
+        bits = bin(n)[2:]
+        coeffs = [int(b) for b in reversed(bits)]
+        return self.P_ring(coeffs)
+
+
+    def decrypt_raw_3(self, sk, ct3):
+        c0, c1, c2 = ct3
+        sk_q = self.R_q(list(sk))
+        s2 = sk_q ** 2
+        m_poly = c0 + c1 * sk_q + c2 * s2
+
+        coeffs = [self.round_half_up(self.center_mod_q(c) * self.t / self.q) % self.t for c in m_poly.list()]
+        return self.list_to_P_ring(coeffs)
+    
+
+
