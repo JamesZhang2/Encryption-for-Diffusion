@@ -38,8 +38,8 @@ class BFV():
         x = int(x) % q
         return x if x < q // 2 else x - q
 
-    def round_half_up(self, i):
-        return int(i + 0.5) if i >= 0 else int(i - 0.5)
+    # def round_half_up(self, i):
+    #     return int(i + 0.5) if i >= 0 else int(i - 0.5)
 
     def array_to_P_ring(self, arr):
         '''
@@ -210,8 +210,7 @@ class BFV():
         # print("times:", lst[0] * self.t)
         # print("q:", self.q)
         # print("times div:", int(int(lst[0]) * int(self.t) / int(self.q)))
-        coeffs = [self.round_half_up(int(num) * self.t / self.q) % self.t
-          for num in (c1 + c2 * sk_q).list()]
+        coeffs = [int(round(int(num) * self.t / self.q)) % self.t for num in (c1 + c2 * sk_q).list()]
         # print(coeffs)
         return self.list_to_P_ring(coeffs)
     
@@ -221,36 +220,64 @@ class BFV():
         outputs a ciphertext c3 encrypting (m1 + m2)
         '''
         return (c1[0]+c2[0], c1[1]+c2[1])
+
+    def _mult_without_mod_q(self, p1, p2):
+        '''
+        p1 and p2 are elements in Z_q[x]/(x^n + 1)
+        We want to multiply them as if they're in Z[x]/(x^n + 1)
+        Returns an element of Z[x]/(x^n + 1)
+        '''
+        R = PolynomialRing(ZZ, 'y')
+        y = R.gen()
+        f = y ** self.n + 1
+        R = R.quotient(f, 'ybar')
+        # ybar = R.gen()
+        coeff1 = list(p1)
+        coeff2 = list(p2)
+        py1 = R(coeff1)
+        py2 = R(coeff2)
+        # print("py1", py1)
+        # print("py2", py2)
+        # print(py1 * py2)
+        return py1 * py2
     
     def eval_mult(self, ek, c1, c2): # -> tuple[R_q, R_q]
         '''
         If c1 is an encryption of m1 and c2 an encryption of m2,
         outputs a ciphertext encrypting (m1 * m2)
         '''
+        print("c1:", c1)
+        print("c2:", c2)
         ls = []
-        delt = self.q // self.t
-        scal = 1 / delt
-        Zq = Integers(self.q)
-        x = self.R_q.gen()
+        # delt = self.q // self.t
+        # print(delt)
+        # scal = 1 / delt
+        # print(scal)
+        xbar = self.R_q.gen()
         for i in range(3):
             if i==0:
-                p_R = c1[0]*c2[0]
+                print(c1[0])
+                print(c2[0])
+                p_R = self._mult_without_mod_q(c1[0], c2[0])
+                print("p_R:", p_R)
             elif i==1:
-                p_R = c1[0]*c2[1] + c1[1]*c2[0]
+                p_R = self._mult_without_mod_q(c1[0], c2[1]) + self._mult_without_mod_q(c1[1], c2[0])
             else:
-                p_R = c1[1]*c2[1]
-            lifted = p_R.lift()
-            coeffs = [Zq(self.round_half_up(scal * int(c))) for c in lifted.coefficients(sparse=False)]
-            ls.append(self.R_q(sum(c * x**j for j, c in enumerate(coeffs))))
+                p_R = self._mult_without_mod_q(c1[1], c2[1])
+            print("t:", self.t)
+            print("q:", self.q)
+            coeffs = [int(round(int(c * self.t) / self.q)) for c in list(p_R)]
+            print("coeffs:", coeffs)
+            poly_R_q = sum(c * xbar**j for j, c in enumerate(coeffs))
+            print("poly_R_q:", poly_R_q)
+            ls.append(poly_R_q)
+        print("before relinearize:", ls)
         return self._relinearize(ek, tuple(ls))
 
     def _relinearize(self, ek, c): # C_ring:
         c0, c1, c2 = c
         ek1, ek2 = ek
-        return (
-            c0 + ek1 * c2,
-            c1 + ek2 * c2
-        )
+        return (c0 + ek1 * c2, c1 + ek2 * c2)
 
     def eval_add_const(self, c, n, pk, ek):
         '''
@@ -280,7 +307,7 @@ class BFV():
         s2 = sk_q ** 2
         m_poly = c0 + c1 * sk_q + c2 * s2
 
-        coeffs = [self.round_half_up(self.center_mod_q(c) * self.t / self.q) % self.t for c in m_poly.list()]
+        coeffs = [self.round(self.center_mod_q(c) * self.t / self.q) % self.t for c in m_poly.list()]
         return self.list_to_P_ring(coeffs)
     
 

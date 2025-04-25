@@ -61,6 +61,24 @@ def eval_add_const_test_fn(bfv, n, param_t, param_q):
     print(f"Expected:      {sum_poly}")
     print(f"Decrypted poly: {decrypted_poly}")
 
+def eval_mult_const_test_fn(bfv, n, param_t, param_q):
+    (sk, pk, ek) = bfv.key_gen()
+    m = 42
+    m_poly = bfv._polynomialize(m)
+    
+    ct = bfv.encrypt(pk, m_poly)
+
+    n = 17
+    ct_added = bfv.eval_mult_const(ct, n, pk, ek)
+
+    decrypted_poly = bfv.decrypt(sk, ct_added)
+    sum_poly = bfv._polynomialize(m*n)
+
+    print(f"Original int:  {m}")
+    print(f"Constant:      {n}")
+    print(f"Expected:      {sum_poly}")
+    print(f"Decrypted poly: {decrypted_poly}")
+
 def eval_add_test_fn(bfv, n, param_t, param_q):
     (sk, pk, ek) = bfv.key_gen()
     rng = np.random.default_rng()
@@ -133,21 +151,46 @@ def test_eval_add():
 
 def test_eval_mult():
     print("Running test_eval_mult...")
-    run_tests(eval_mult_test_fn)
+    # run_tests(eval_mult_test_fn)
+    bfv = BFV(2, 5, 10)
+    (sk, pk, ek) = bfv.key_gen()
+    rng = np.random.default_rng()
+    message_1 = [3, 0]
+    message_2 = [4, 0]
+    m1 = bfv.list_to_P_ring(message_1)
+    m2 = bfv.list_to_P_ring(message_2)
+    prod = m1 * m2
+    enc1 = bfv.encrypt(pk, m1)
+    # print(enc1)
+    enc2 = bfv.encrypt(pk, m2)
+    # print(enc2)
+    eval_mult_ans = bfv.eval_mult(ek, enc1, enc2)
+    print("enc:", eval_mult_ans)
+    dec = bfv.decrypt(sk, eval_mult_ans)
+    print("dec:", dec)
+    # print(bfv.decrypt(sk, bfv.encrypt(pk, prod)))
 
 def test_eval_add_const():
     print("Running test_eval_add_const...")
     run_tests(eval_add_const_test_fn)
+
+def test_eval_mult_const():
+    print("Running test_eval_mult_const...")
+    run_tests(eval_mult_const_test_fn)
 
 def test_int_encoding():
     print("Running test_int_encoding...")
     run_tests(int_encoding_test_fn)
 
 def run_all_tests():
-    #encrypt_then_decrypt()
-    #print("-" * 60)
+    # encrypt_then_decrypt()
+    # print("-" * 60)
+    # test_eval_add()
+    # print("-" * 60)
     # test_eval_add_const()
-    # test_eval_mult()
-    test_int_encoding()
+    # print("-" * 60)
+    # test_eval_mult_const()
+    test_eval_mult()
+    # test_int_encoding()
 
 run_all_tests()
