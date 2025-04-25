@@ -46,7 +46,9 @@ class BFV():
         Converts a np.array to a P_ring element, where arr[i] is the coefficient of x^i
         '''
         if len(arr) > self.n:
-            raise ValueError("Input array length larger than dimension")
+            raise ValueError("Input array length larger than dimension:", arr)
+        if len(arr) == 0:
+            raise ValueError("Input array is empty")
         xbar = self.P_ring.gen()
         return sum([(arr[i] % self.t) * xbar ** i for i in range(len(arr))])
     
@@ -55,7 +57,9 @@ class BFV():
         Converts a Python list to a P_ring element, where lst[i] is the coefficient of x^i
         '''
         if len(lst) > self.n:
-            raise ValueError("Input list length larger than dimension")
+            raise ValueError("Input list length larger than dimension:", lst)
+        if len(lst) == 0:
+            raise ValueError("Input list is empty")
         xbar = self.P_ring.gen()
         return sum([(lst[i] % self.t) * xbar ** i for i in range(len(lst))])
 
@@ -75,6 +79,60 @@ class BFV():
         arr1 = self.poly_to_array(p1)
         arr2 = self.poly_to_array(p2)
         return np.min(np.array([abs(arr1 - arr2), abs(arr1 + self.t - arr2), abs(arr1 - self.t - arr2)]), axis=0)
+
+    def encode_int(self, num, unit=None):
+        '''
+        Encodes an integer using binary,
+        with unit being the difference between the encoding of 0 and the encoding of 1.
+        Returns a P_ring element (plaintext).
+        For example, if unit is 100, then 3 is encoded as 100 + 100x,
+        14 is encoded as 100x + 100x^3,
+        and -5 is encoded as -100 + -100x^2.
+        Note that we're wrapping around, that is,
+        if the coefficient is greater than self.t/2, we treat it as negative.
+        Requires: unit <= self.t/3 (because we need to at least distinguish -1, 0, and 1)
+        It is recommended that unit << self.t/3 so that we don't wrap around.
+        If unit is unspecified, defaults to min(1000, self.t // 10)
+        Requires: abs(num) < 2 ** self.n so that we can represent the number in binary.
+        '''
+        if unit == None:
+            unit = min(1000, self.t // 10)
+        if num == 0:
+            return self.list_to_P_ring([0])
+        neg_sign = 1 if num > 0 else -1
+        num = abs(num)
+        lst = []
+        while num != 0:
+            lst.append((num % 2) * neg_sign * unit)
+            num //= 2
+        return self.list_to_P_ring(lst)
+    
+    def decode_int(self, poly, unit=None) -> int:
+        '''
+        Decodes a P_ring element to an integer,
+        with unit being the difference between the encoding of 0 and the encoding of 1.
+        Returns an integer.
+        The same unit should be used for encoding and decoding.
+        Note that we're wrapping around, that is,
+        if the coefficient is greater than self.t/2, we treat it as negative.
+        Requires: unit <= self.t/3 (because we need to at least distinguish -1, 0, and 1)
+        It is recommended that unit << self.t/3 so that we don't wrap around.
+        If unit is unspecified, defaults to min(1000, self.t // 10)
+        '''
+        if unit == None:
+            unit = min(1000, self.t // 10)
+        lst = list(poly)
+        # print(lst)
+        num = 0
+        for i in range(len(lst)):
+            if int(lst[i]) <= self.t / 2:
+                # treat coefficient as positive
+                # round to nearest unit
+                num += round(int(lst[i]) / unit) * (2 ** i)
+            else:
+                # treat coefficient as negative
+                num += round((int(lst[i]) - self.t) / unit) * (2 ** i)
+        return int(num)
 
     ##### Functions to sample from distributions #####
 

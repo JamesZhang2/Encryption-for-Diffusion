@@ -1,4 +1,5 @@
 import numpy as np
+import random
 from bfv import BFV
 
 # TODO: Refactor test code to factor out boilerplate (e.g. parameter ranges)
@@ -91,14 +92,14 @@ def eval_add_test_fn(bfv, n, param_t, param_q):
 def eval_mult_test_fn(bfv, n, param_t, param_q):
     (sk, pk, ek) = bfv.key_gen()
     rng = np.random.default_rng()
-    message_1 = rng.integers(low=0, high=bfv.t, size=n)
-    message_2 = rng.integers(low=0, high=bfv.t, size=n)
+    message_1 = rng.integers(low=0, high=int(bfv.t / 10), size=n)
+    message_2 = rng.integers(low=0, high=int(bfv.t / 10), size=n)
     m1 = bfv.array_to_P_ring(message_1)
     m2 = bfv.array_to_P_ring(message_2)
     enc1 = bfv.encrypt(pk, m1)
     enc2 = bfv.encrypt(pk, m2)
-    eval_add_ans = bfv.eval_mult(ek, enc1, enc2)
-    dec = bfv.decrypt(sk, eval_add_ans)
+    eval_mult_ans = bfv.eval_mult(ek, enc1, enc2)
+    dec = bfv.decrypt(sk, eval_mult_ans)
     
     print("(n, param_t, param_q) =", (n, param_t, param_q))
     # print(bfv.poly_to_array(m1 + m2))
@@ -117,22 +118,36 @@ def eval_mult_test_fn(bfv, n, param_t, param_q):
     assert max_rel_err < max(20 * 2 ** (-param_t), 1e-7), (bfv.poly_to_array(m1 + m2), bfv.poly_to_array(dec), err)
     print()
 
+def int_encoding_test_fn(bfv, n, param_t, param_q):
+    (sk, pk, ek) = bfv.key_gen()
+    print(f"n={n}, t={param_t}, q={param_q}")
+    for _ in range(100):
+        num = random.randint(-2 ** bfv.n + 1, 2 ** bfv.n - 1)
+        poly = bfv.encode_int(num)
+        dec_num = bfv.decode_int(poly)
+        assert num == dec_num, f"expected: {num}, actual: {dec_num}"
 
 def test_eval_add():
     print("Running test_eval_add...")
     run_tests(eval_add_test_fn)
 
 def test_eval_mult():
-    print("Running test_eval_mult.")
+    print("Running test_eval_mult...")
     run_tests(eval_mult_test_fn)
 
 def test_eval_add_const():
-    print("Running test_eval_add_const.")
+    print("Running test_eval_add_const...")
     run_tests(eval_add_const_test_fn)
+
+def test_int_encoding():
+    print("Running test_int_encoding...")
+    run_tests(int_encoding_test_fn)
 
 def run_all_tests():
     #encrypt_then_decrypt()
     #print("-" * 60)
-    test_eval_add_const()
+    # test_eval_add_const()
+    # test_eval_mult()
+    test_int_encoding()
 
 run_all_tests()
