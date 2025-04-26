@@ -152,11 +152,11 @@ def test_eval_add():
 def test_eval_mult():
     print("Running test_eval_mult...")
     # run_tests(eval_mult_test_fn)
-    bfv = BFV(2, 5, 10)
+    bfv = BFV(2, 10, 20)
     (sk, pk, ek) = bfv.key_gen()
     rng = np.random.default_rng()
-    message_1 = [3, 0]
-    message_2 = [4, 0]
+    message_1 = [10, 0]
+    message_2 = [7, 0]
     m1 = bfv.list_to_P_ring(message_1)
     m2 = bfv.list_to_P_ring(message_2)
     prod = m1 * m2
@@ -164,9 +164,9 @@ def test_eval_mult():
     # print(enc1)
     enc2 = bfv.encrypt(pk, m2)
     # print(enc2)
-    eval_mult_ans = bfv.eval_mult(ek, enc1, enc2)
+    eval_mult_ans = bfv.eval_mult(ek, enc1, enc2, sk, relin=False)
     print("enc:", eval_mult_ans)
-    dec = bfv.decrypt(sk, eval_mult_ans)
+    dec = bfv.decrypt_raw_3(sk, eval_mult_ans)
     print("dec:", dec)
     # print(bfv.decrypt(sk, bfv.encrypt(pk, prod)))
 

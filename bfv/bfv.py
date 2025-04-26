@@ -241,7 +241,7 @@ class BFV():
         # print(py1 * py2)
         return py1 * py2
     
-    def eval_mult(self, ek, c1, c2): # -> tuple[R_q, R_q]
+    def eval_mult(self, ek, c1, c2, sk, relin=True): # -> tuple[R_q, R_q]
         '''
         If c1 is an encryption of m1 and c2 an encryption of m2,
         outputs a ciphertext encrypting (m1 * m2)
@@ -272,11 +272,19 @@ class BFV():
             print("poly_R_q:", poly_R_q)
             ls.append(poly_R_q)
         print("before relinearize:", ls)
-        return self._relinearize(ek, tuple(ls))
+        if relin:
+            return self._relinearize(ek, tuple(ls), sk)
+        else:
+            return tuple(ls)
 
-    def _relinearize(self, ek, c): # C_ring:
+    def _relinearize(self, ek, c, sk): # C_ring:
         c0, c1, c2 = c
         ek1, ek2 = ek
+        sk_q = self.R_q(list(sk))
+        c1_star = c0 + ek1 * c2
+        c2_star = c1 + ek2 * c2
+        print("LHS:", c0 + c1 * sk_q + c2 * sk_q * sk_q)
+        print("RHS:", c1_star + c2_star * sk_q)
         return (c0 + ek1 * c2, c1 + ek2 * c2)
 
     def eval_add_const(self, c, n, pk, ek):
@@ -304,10 +312,9 @@ class BFV():
     def decrypt_raw_3(self, sk, ct3):
         c0, c1, c2 = ct3
         sk_q = self.R_q(list(sk))
-        s2 = sk_q ** 2
-        m_poly = c0 + c1 * sk_q + c2 * s2
+        m_poly = c0 + c1 * sk_q + c2 * sk_q ** 2
 
-        coeffs = [self.round(self.center_mod_q(c) * self.t / self.q) % self.t for c in m_poly.list()]
+        coeffs = [int(round(int(c) * self.t / self.q)) for c in list(m_poly)]
         return self.list_to_P_ring(coeffs)
     
 
