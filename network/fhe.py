@@ -1,8 +1,8 @@
 import torch
 
 
-def enc(x:int):  #encrypt integer
-    c_x = x 
+def enc(x: int):  # encrypt integer
+    c_x = x
     return c_x
 
 

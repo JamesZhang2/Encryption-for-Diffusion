@@ -54,14 +54,38 @@ class ResidualBlock(nn.Module):
     ):
         super().__init__()
         self.p = dropout
+        self.residual = nn.Linear(in_dim, out_dim)
         self.linear1 = nn.Linear(in_dim, out_dim)
         self.linear2 = nn.Linear(out_dim, out_dim)
+        self.non_lin = lambda x: x**2 + x
 
     def forward(self, x):
-        y = self.linear1(x)**2
-        y = self.linear2(y)**2
+        y = self.non_lin(self.linear1(x))
+        print(torch.max(y), torch.min(y))
+        y = self.non_lin(self.linear2(y))
         y = F.dropout(y, p=self.p, training=self.training)
-        return y + x
+        return y + self.residual(x)
+
+
+class MultiLayerNet(nn.Module):
+    def __init__(
+        self,
+        in_dim: int,
+        out_dim: int,
+        hidden_dim: int,
+    ):
+        super().__init__()
+
+        # Define Layers
+        self.fc1 = nn.Linear(in_dim, hidden_dim)
+        self.fc2 = nn.Linear(hidden_dim, hidden_dim)
+        self.fc3 = nn.Linear(hidden_dim, out_dim)
+
+    def forward(self, x):
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = self.fc3(x)
+        return x
 
 
 if __name__ == "__main__":

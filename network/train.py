@@ -16,7 +16,7 @@ from sklearn.model_selection import train_test_split
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 torch.manual_seed(0)
-np.random.seed(0)
+np.random.seed(42)
 random.seed(0)
 
 
@@ -30,9 +30,9 @@ def download_data():
     return train_ds, test_ds
 
 
-def train():
+def train(model):
     # Get train and validation splits
-    full_train_ds, test_ds = download_data()
+    full_train_ds, _ = download_data()
 
     train_indices, val_indices = train_test_split(
         list(range(len(full_train_ds))), test_size=0.2, random_state=0)
@@ -46,7 +46,6 @@ def train():
                             shuffle=False, num_workers=0)
 
     # Use Linear layer
-    model = Linear(28 * 28, 10).to(device)
     optimizer = Adam(model.parameters(), lr=0.001)
     criterion = torch.nn.CrossEntropyLoss()
 
@@ -58,7 +57,6 @@ def train():
         for batch_idx, (data, target) in enumerate(train_loader):
             data, target = data.to(device), target.to(device)
             data = data.view(data.size(0), -1)  # Flatten the input
-
             optimizer.zero_grad()
             output = model(data)
             output = F.softmax(output, dim=1)  # get log prob.
@@ -88,5 +86,30 @@ def train():
         print(f"Validation Loss: {val_loss:.4f}")
 
 
+def test(model):
+    _, full_test_ds = download_data()
+
+    test_loader = DataLoader(full_test_ds, batch_size=64,
+                             shuffle=True, num_workers=0)
+
+    model.eval()
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for data, target in test_loader:
+            data, target = data.to(device), target.to(device)
+            data = data.view(data.size(0), -1)
+            output = model(data)
+            output = F.softmax(output, dim=-1)
+            pred = output.argmax(dim=1, keepdim=True)
+            correct += pred.eq(target.view_as(pred)).sum().item()
+            total += target.size(0)
+
+    accuracy = correct / total
+    print(f"Test Accuracy: {accuracy:.4f}, {correct}/{total}")
+
+
 if __name__ == "__main__":
-    train()
+    model = Linear(28 * 28, 10).to(device)
+    train(model)
+    test(model)
