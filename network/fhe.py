@@ -90,9 +90,21 @@ class FHE:
         for i in range(c_x.shape[0]):
             c_z[i] = self.mult_const(c_x[i], scale)
         return c_z
+    
+    def dot_const(self, p, c):
+        '''homomorphically evaluates dot product of a plaintext vector and an encrypted vector'''
+        assert len(p) == len(c)
+        mults = torch.empty_like(p)
+        for i in range(p.shape[0]):
+            mults[i] = self.mult_const(c[i], p[i])
+        sum = mults[0]
+        for i in range(1, p.shape[0]):
+            sum = self.add_const(sum, mults[i])
+        return sum
 
     def dot(self, c_x, c_y):
         '''homomorphically evaluates dot product of two encrypted vectors'''
+        assert len(c_x) == len(c_y)
         mults = torch.empty_like(c_x)
         for i in range(c_x.shape[0]):
             mults[i] = self.mult(c_x[i], c_y[i])
@@ -119,6 +131,7 @@ class FHE:
 
     def add_mat(self, c_x, c_y):
         '''homomorphically adds two pytorch 2d matrix of ciphertexts element-wise'''
+        assert c_x.shape == c_y.shape
         c_z = torch.empty_like(c_x)
         for i in range(c_x.shape[0]):
             c_z[i] = self.add_vec(c_x[i], c_y[i])
@@ -133,10 +146,22 @@ class FHE:
 
     def matrix_product(self, c_x, c_y):
         '''homomorphically take matrix product of two pytorch 2d matrix of ciphertexts'''
+        assert c_x.shape[1] == c_y.shape[0]
         m = c_x.shape[0]
         n = c_y.shape[1]
         out = torch.empty((m, n))
         for i in range(m):
             for j in range(n):
                 out[i][j] = self.dot(c_x[i], c_y[:, j])
+        return out
+
+    def matrix_product_const(self, x, c):
+        '''matrix product of plaintext matrix with ciphertext matrix'''
+        assert x.shape[1] == c.shape[0]
+        m = x.shape[0]
+        n = c.shape[1]
+        out = torch.empty((m, n))
+        for i in range(m):
+            for j in range(n):
+                out[i][j] = self.dot_const(x[i], c[:, j])
         return out

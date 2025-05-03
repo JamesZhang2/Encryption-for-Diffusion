@@ -10,9 +10,11 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 from models import Linear
+from models import FHELinear
 from tqdm import tqdm
 import numpy as np
 from sklearn.model_selection import train_test_split
+from fhe import FHE
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 torch.manual_seed(0)
@@ -108,8 +110,30 @@ def test(model):
     accuracy = correct / total
     print(f"Test Accuracy: {accuracy:.4f}, {correct}/{total}")
 
+def test_fhe(model, fhe):
+    _, full_test_ds = download_data()
+
+    test_loader = DataLoader(full_test_ds, batch_size=64,
+                             shuffle=True, num_workers=0)
+
+    model.eval()
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for data, target in test_loader:
+            data, target = data.to(device), target.to(device)
+            data = data.view(data.size(0), -1)
+            print(type(data))
+            output = model(data)
+            output = F.softmax(output, dim=-1)
+            pred = output.argmax(dim=1, keepdim=True)
+            correct += pred.eq(target.view_as(pred)).sum().item()
+            total += target.size(0)
 
 if __name__ == "__main__":
     model = Linear(28 * 28, 10).to(device)
+    fhe = FHE()
+    fhe_model = FHELinear(model, fhe)
     train(model)
     test(model)
+    test_fhe(fhe_model, fhe)
