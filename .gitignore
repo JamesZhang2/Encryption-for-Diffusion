@@ -1,1 +1,5 @@
 venv_sage/*
+
+diffusion/data/*
+
+*/__pycache__/*
