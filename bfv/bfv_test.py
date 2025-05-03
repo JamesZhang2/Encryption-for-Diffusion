@@ -150,25 +150,52 @@ def test_eval_add():
     run_tests(eval_add_test_fn)
 
 def test_eval_mult():
+    def smart_wrap(max_range, poly, var="x"):
+        coeffs = list(poly)
+        t = max_range
+        for i, c in enumerate(coeffs):
+            print(int(c) if int(c) < t / 2 else int(c) - t, end="")
+            if i > 0:
+                print(var + "^" + str(i) + " ", end="")
+            else:
+                print(" ", end="")
+            if i < len(coeffs) - 1:
+                print("+ ", end="")
+        print()
+    
     print("Running test_eval_mult...")
-    # run_tests(eval_mult_test_fn)
-    bfv = BFV(2, 10, 20)
-    (sk, pk, ek) = bfv.key_gen()
-    rng = np.random.default_rng()
-    message_1 = [10, 0]
-    message_2 = [7, 0]
-    m1 = bfv.list_to_P_ring(message_1)
-    m2 = bfv.list_to_P_ring(message_2)
-    prod = m1 * m2
-    enc1 = bfv.encrypt(pk, m1)
-    # print(enc1)
-    enc2 = bfv.encrypt(pk, m2)
-    # print(enc2)
-    eval_mult_ans = bfv.eval_mult(ek, enc1, enc2, sk, relin=False)
-    print("enc:", eval_mult_ans)
-    dec = bfv.decrypt_raw_3(sk, eval_mult_ans)
-    print("dec:", dec)
-    # print(bfv.decrypt(sk, bfv.encrypt(pk, prod)))
+    for n in [5, 10, 20, 40, 80]:
+        for param_t in [5, 10, 15, 18, 20]:
+            param_q = min(63, param_t * 3 + 5)  # Note: change this to explore how param_q affects relative error!
+            # In general, as param_q gets larger w.r.t. param_t, relative error gets smaller.
+            bfv = BFV(n, param_t, param_q)
+            (sk, pk, ek) = bfv.key_gen()
+            rng = np.random.default_rng()
+            message_1 = rng.integers(low=-int(bfv.t / 10), high=int(bfv.t / 10), size=n)
+            message_2 = rng.integers(low=-int(bfv.t / 10), high=int(bfv.t / 10), size=n)
+            m1 = bfv.list_to_P_ring(message_1)
+            m2 = bfv.list_to_P_ring(message_2)
+            prod = m1 * m2
+            enc1 = bfv.encrypt(pk, m1)
+            # print(enc1)
+            enc2 = bfv.encrypt(pk, m2)
+            # print(enc2)
+            eval_mult_ans = bfv.eval_mult(ek, enc1, enc2, sk, relin=False)
+            # print("enc:", eval_mult_ans)
+            dec = bfv.decrypt_raw_3(sk, eval_mult_ans)
+            # print("dec: ", end="")
+            # smart_wrap(bfv.t, dec)
+            # print("prod: ", end="")
+            # smart_wrap(bfv.t, prod)
+            # print(bfv.decrypt(sk, bfv.encrypt(pk, prod)))
+            print("(n, param_t, param_q) =", (n, param_t, param_q))
+            err = bfv.diff_P_ring(prod, dec)
+            # print(err)
+            max_abs_err = err.max()
+            max_rel_err = max_abs_err / (2 ** param_t)
+            print("max absolute error:", max_abs_err)
+            print("max relative error (w.r.t. 2^param_t):", max_rel_err)
+            print()
 
 def test_eval_add_const():
     print("Running test_eval_add_const...")

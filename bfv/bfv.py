@@ -181,17 +181,10 @@ class BFV():
         '''
         u = self._sample_from_R2()
         u_q = self.R_q(list(u))  # cast to R_q
-        # print("u_q:", u_q)
-        # print("pk:", pk)
-        # print("m:", m)
-        # print("t:", self.t)
-        # print("q:", self.q)
         pk1, pk2 = pk
         delta = self.q // self.t
-        # print("delta:", delta)
         c1 = pk1 * u_q + self._sample_error_dtbn() + delta * self.R_q(m.list())
         c2 = pk2 * u_q + self._sample_error_dtbn()
-        # print("c1, c2:", c1, c2)
         return (c1, c2)
 
     def decrypt(self, sk, c): # -> P_ring
@@ -200,18 +193,7 @@ class BFV():
         '''
         c1, c2 = c
         sk_q = self.R_q(list(sk))  # sk cast to R_q
-        # print("sk_q:", sk_q)
-        # print("arr:", np.array((c1 + c2 * sk_q).list(), dtype=int))
-        # print("t:", self.t)
-        # print("q:", self.q)
-        # print("arr * t / q:", np.array((c1 + c2 * sk_q).list(), dtype=int) * self.t / self.q)
-        lst = (c1 + c2 * sk_q).list()
-        # print("lst:", lst)
-        # print("times:", lst[0] * self.t)
-        # print("q:", self.q)
-        # print("times div:", int(int(lst[0]) * int(self.t) / int(self.q)))
         coeffs = [int(round(int(num) * self.t / self.q)) % self.t for num in (c1 + c2 * sk_q).list()]
-        # print(coeffs)
         return self.list_to_P_ring(coeffs)
     
     def eval_add(self, ek, c1, c2): # -> C_ring
@@ -231,14 +213,10 @@ class BFV():
         y = R.gen()
         f = y ** self.n + 1
         R = R.quotient(f, 'ybar')
-        # ybar = R.gen()
         coeff1 = list(p1)
         coeff2 = list(p2)
         py1 = R(coeff1)
         py2 = R(coeff2)
-        # print("py1", py1)
-        # print("py2", py2)
-        # print(py1 * py2)
         return py1 * py2
     
     def eval_mult(self, ek, c1, c2, sk, relin=True): # -> tuple[R_q, R_q]
@@ -246,32 +224,27 @@ class BFV():
         If c1 is an encryption of m1 and c2 an encryption of m2,
         outputs a ciphertext encrypting (m1 * m2)
         '''
-        print("c1:", c1)
-        print("c2:", c2)
+        print("In eval_mult...")
+        # print("c1:", c1)
+        # print("c2:", c2)
+        # print("t:", self.t)
+        # print("q:", self.q)
         ls = []
-        # delt = self.q // self.t
-        # print(delt)
-        # scal = 1 / delt
-        # print(scal)
         xbar = self.R_q.gen()
         for i in range(3):
             if i==0:
-                print(c1[0])
-                print(c2[0])
                 p_R = self._mult_without_mod_q(c1[0], c2[0])
-                print("p_R:", p_R)
             elif i==1:
                 p_R = self._mult_without_mod_q(c1[0], c2[1]) + self._mult_without_mod_q(c1[1], c2[0])
             else:
                 p_R = self._mult_without_mod_q(c1[1], c2[1])
-            print("t:", self.t)
-            print("q:", self.q)
             coeffs = [int(round(int(c * self.t) / self.q)) for c in list(p_R)]
-            print("coeffs:", coeffs)
             poly_R_q = sum(c * xbar**j for j, c in enumerate(coeffs))
-            print("poly_R_q:", poly_R_q)
             ls.append(poly_R_q)
-        print("before relinearize:", ls)
+        # print("before relinearize: ")
+        # print("c0: ", ls[0])
+        # print("c1: ", ls[1])
+        # print("c2: ", ls[2])
         if relin:
             return self._relinearize(ek, tuple(ls), sk)
         else:
