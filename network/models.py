@@ -6,6 +6,10 @@ from einops import rearrange
 from fhe import *
 
 
+def scale_round(x, scale):
+    return torch.round(x * scale).long()
+
+
 class Linear(nn.Module):
     def __init__(self, in_dim, out_dim, bias=True):
         super().__init__()
@@ -19,23 +23,24 @@ class Linear(nn.Module):
         return x
 
 
-class FHELinear:
+class FHELinear(nn.Module):
     def __init__(self, linear: nn.Linear, scale=100.0):
+        super().__init__()
         self.in_dim = linear.in_dim
         self.out_dim = linear.out_dim
         self.scale = scale
-        self.bias = enc_vec((linear.linear.bias * scale).long())
-        self.weight = enc_mat((linear.linear.weight * scale).long())
-        print(self.weight)
+        self.true_bias = linear.linear.bias
+        self.weight = enc_mat(scale_round(linear.linear.weight, scale))
 
     def forward(self, c_x, in_scale):  # assume input is encrypted
         if len(c_x.shape) == 1:
             c_x = rearrange(c_x, "i -> 1 i")
         assert (len(c_x.shape) == 2)
-        out = mat_mult(self.weight, c_x.T).T
-        scaled_bias = self.bias * in_scale
-        out = add_matrix_vector(out, self.bias)
-        return c_x
+        out = matrix_product(self.weight, c_x.T).T
+        bias = enc_vec(scale_round(
+            self.true_bias, in_scale * self.scale))
+        out = add_matrix_vector(out, bias)
+        return out, in_scale * self.scale
 
 
 class ResidualBlock(nn.Module):
@@ -62,7 +67,3 @@ class ResidualBlock(nn.Module):
 if __name__ == "__main__":
     # block = ResidualBlock(10, 20)
     block = FHELinear(Linear(10, 20))
-    rand = torch.randn(10, 10)
-    x = enc_mat(rand)
-    print(x)
-    x = dec_mat(x)

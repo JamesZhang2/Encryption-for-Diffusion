@@ -9,95 +9,84 @@ from torch.optim import Adam
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
-from unet import UNet
+from models import Linear
+from tqdm import tqdm
+import numpy as np
+from sklearn.model_selection import train_test_split
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+torch.manual_seed(0)
+np.random.seed(0)
+random.seed(0)
 
-transform = transforms.Compose([transforms.ToTensor()])
-train_ds   = datasets.CIFAR100(root="./data", train=True, download=True, transform=transform)
-loader     = DataLoader(train_ds, batch_size=64, shuffle=True, num_workers=4)
 
-# — Model + class‑embedding (must match training dimensions) —
-unet_base_channel = 64
-num_classes       = 100
+def download_data():
+    # Load MNIST dataset
+    transform = transforms.Compose([transforms.ToTensor()])
+    train_ds = datasets.MNIST(root="./data", train=True,
+                              download=True, transform=transform)
+    test_ds = datasets.MNIST(root="./data", train=False,
+                             download=True, transform=transform)
+    return train_ds, test_ds
 
-unet = UNet(
-    source_channel=3,
-    unet_base_channel=unet_base_channel,
-    num_groups=32
-).to(device)
 
-emb = torch.nn.Embedding(num_classes, unet_base_channel * 4).to(device)
+def train():
+    # Get train and validation splits
+    full_train_ds, test_ds = download_data()
 
-# 2) OPTIMIZER / SCHEDULER / AMP INITIALIZATION
-p_uncond   = 0.2
-num_epochs = 200
-T          = 1000
-save_every = 10
-log_file   = "train_loss.log"
+    train_indices, val_indices = train_test_split(
+        list(range(len(full_train_ds))), test_size=0.2, random_state=0)
 
-opt       = Adam(list(emb.parameters()) + list(unet.parameters()), lr=2e-4, eps=1e-08)
-scheduler = CosineAnnealingLR(opt, T_max=num_epochs * len(loader))
-scaler    = GradScaler(device=str(device))
+    train_ds = torch.utils.data.Subset(full_train_ds, train_indices)
+    val_ds = torch.utils.data.Subset(full_train_ds, val_indices)
 
-# 3) PRECOMPUTE NOISE SCHEDULE
-alphas     = torch.linspace(0.9999, 0.98, T, dtype=torch.float64, device=device)
-alpha_bars = torch.cumprod(alphas, dim=0)
-sqrt_ab    = torch.sqrt(alpha_bars).float()
-sqrt_1m_ab = torch.sqrt(1 - alpha_bars).float()
+    train_loader = DataLoader(train_ds, batch_size=64,
+                              shuffle=True, num_workers=0)
+    val_loader = DataLoader(val_ds, batch_size=64,
+                            shuffle=False, num_workers=0)
 
-# 4) CLEAN OLD LOG
-if os.path.exists(log_file):
-    os.remove(log_file)
+    # Use Linear layer
+    model = Linear(28 * 28, 10).to(device)
+    optimizer = Adam(model.parameters(), lr=0.001)
+    criterion = torch.nn.CrossEntropyLoss()
 
-# 5) TRAINING LOOP (DDPM + CFG)
-for epoch in range(1, num_epochs + 1):
-    unet.train()
-    losses = []
+    # Training loop
+    epochs = 5
+    for epoch in range(epochs):
+        model.train()
+        epoch_loss = 0
+        for batch_idx, (data, target) in enumerate(train_loader):
+            data, target = data.to(device), target.to(device)
+            data = data.view(data.size(0), -1)  # Flatten the input
 
-    for batch_idx, (x0, y) in enumerate(loader, start=1):
-        x0, y = x0.to(device), y.to(device)
-        B     = x0.shape[0]
+            optimizer.zero_grad()
+            output = model(data)
+            output = F.softmax(output, dim=1)  # get log prob.
+            loss = criterion(output, target)
+            loss.backward()
+            optimizer.step()
 
-        # 1) sample random t and noise ε 
-        t   = torch.randint(0, T, (B,), device=device)
-        eps = torch.randn_like(x0)
+            epoch_loss += loss.item()
 
-        # 2) forward diffusion: x_t = √ᾱ_t · x₀ + √(1−ᾱ_t) · ε 
-        a_t   = sqrt_ab[t][:, None, None, None]
-        one_t = sqrt_1m_ab[t][:, None, None, None]
-        xt    = a_t * x0 + one_t * eps
+        print(
+            f"Epoch {epoch+1}/{epochs}, Training Loss: {epoch_loss / len(train_loader):.4f}")
 
-        # 3) get class‑embedding + dropout for CFG
-        y_emb = emb(y)  # (B, emb_dim)
-        mask  = (torch.rand(B, device=device) >= p_uncond).float().unsqueeze(1)
-        y_emb = y_emb * mask
+        # Validation loop
+        model.eval()
+        val_loss = 0
+        correct = 0
+        with torch.no_grad():
+            for data, target in val_loader:
+                data, target = data.to(device), target.to(device)
+                data = data.view(data.size(0), -1)
+                output = model(data)
+                output = F.softmax(output, dim=-1)
+                val_loss += criterion(output, target).item()
+                pred = output.argmax(dim=1, keepdim=True)
+                correct += pred.eq(target.view_as(pred)).sum().item()
+            val_loss /= len(val_loader.dataset)
+        print(f"Validation Loss: {val_loss:.4f}")
 
-        # 4) predict noise and step optimizer (with AMP)
-        opt.zero_grad()
-        with autocast():
-            pred = unet(xt, t, y_emb)
-            loss = F.mse_loss(pred, eps, reduction="mean")
-        scaler.scale(loss).backward()
-        scaler.step(opt)
-        scaler.update()
-        scheduler.step()
 
-        losses.append(loss.item())
-        if batch_idx % 20 == 0:
-            print(f"Epoch {epoch}/{num_epochs} | Batch {batch_idx}/{len(loader)} | Loss {loss.item():.4f}", end="\r")
-
-    avg = sum(losses) / len(losses)
-    print(f"\nEpoch {epoch} done — Avg Loss: {avg:.4f}")
-
-    # append to log
-    with open(log_file, "a") as f:
-        for l in losses:
-            f.write(f"{l:.6f}\n")
-
-    # checkpoint every N epochs
-    if epoch % save_every == 0 or epoch == num_epochs:
-        torch.save(unet.state_dict(),      f"guided_unet_{epoch}.pt")
-        torch.save(emb.state_dict(),       f"guided_embedding_{epoch}.pt")
-
-print("Training complete")
+if __name__ == "__main__":
+    train()

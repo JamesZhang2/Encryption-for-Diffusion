@@ -1,8 +1,9 @@
 import torch
 
 
-def enc(x):
-    return int(x)
+def enc(x:int):  #encrypt integer
+    c_x = x 
+    return c_x
 
 
 def dec(c_x):
@@ -17,7 +18,7 @@ def add(c_x, c_y):
     return c_x + c_y
 
 
-def add_tensor(c_x, c_y):
+def add_mat(c_x, c_y):
     return c_x + c_y
 
 
@@ -45,6 +46,7 @@ def pow_const(x, power=2):  # positive integer
     return x * pow(x, power=power-1)
 
 
+# Vector operations
 def enc_vec(x):
     c_x = torch.empty_like(x)
     for i in range(x.shape[0]):
@@ -73,6 +75,13 @@ def mult_vec(c_x, c_y):
     return c_z
 
 
+def scale_vec(c_x, scale):  # scale vector by a constant
+    c_z = torch.empty_like(c_x)
+    for i in range(c_x.shape[0]):
+        c_z[i] = mult_const(c_x[i], scale)
+    return c_z
+
+
 def dot(c_x, c_y):
     mults = torch.empty_like(c_x)
     for i in range(c_x.shape[0]):
@@ -83,6 +92,7 @@ def dot(c_x, c_y):
     return sum
 
 
+# Matrix operations
 def enc_mat(x):
     c_x = torch.empty_like(x)
     for i in range(x.shape[0]):
@@ -97,21 +107,21 @@ def dec_mat(c_x):
     return x
 
 
-def add_tensor(c_x, c_y):
+def add_mat(c_x, c_y):
     c_z = torch.empty_like(c_x)
     for i in range(c_x.shape[0]):
         c_z[i] = add_vec(c_x[i], c_y[i])
     return c_z
 
 
-def add_matrix_vector(c_x, c_y): # add vector to rows
+def add_matrix_vector(c_x, c_y):  # add vector to rows
     c_z = torch.empty_like(c_x)
     for i in range(c_x.shape[0]):
         c_z[i] = add_vec(c_x[i], c_y)
     return c_z
 
 
-def mat_mult(c_x, c_y):
+def matrix_product(c_x, c_y):
     m = c_x.shape[0]
     n = c_y.shape[1]
     out = torch.empty((m, n))
