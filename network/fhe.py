@@ -18,19 +18,11 @@ def add(c_x, c_y):
     return c_x + c_y
 
 
-def add_mat(c_x, c_y):
-    return c_x + c_y
-
-
 def add_const(c_x, y):
     return c_x + y
 
 
 def mult(c_x, c_y):
-    return c_x * c_y
-
-
-def mult_tensor(c_x, c_y):
     return c_x * c_y
 
 
