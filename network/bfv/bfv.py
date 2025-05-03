@@ -175,16 +175,21 @@ class BFV():
         ek = (ek1, ek2)
         return (sk, pk, ek)
 
-    def encrypt(self, pk, m): # -> C_ring
+    def encrypt(self, pk, m, add_noise=True): # -> C_ring
         '''
         Encrypts m (message) into c (its ciphertext) using pk (the public key)
+        We don't need to add noise if we're encrypting a constant for eval_add_const and eval_mult_const
         '''
         u = self._sample_from_R2()
         u_q = self.R_q(list(u))  # cast to R_q
         pk1, pk2 = pk
         delta = self.q // self.t
-        c1 = pk1 * u_q + self._sample_error_dtbn() + delta * self.R_q(m.list())
-        c2 = pk2 * u_q + self._sample_error_dtbn()
+        if not add_noise:
+            c1 = pk1 * u_q + delta * self.R_q(m.list())
+            c2 = pk2 * u_q
+        else: 
+            c1 = pk1 * u_q + self._sample_error_dtbn() + delta * self.R_q(m.list())
+            c2 = pk2 * u_q + self._sample_error_dtbn()
         return (c1, c2)
 
     def decrypt(self, sk, c): # -> P_ring
@@ -195,6 +200,10 @@ class BFV():
         sk_q = self.R_q(list(sk))  # sk cast to R_q
         coeffs = [int(round(int(num) * self.t / self.q)) % self.t for num in (c1 + c2 * sk_q).list()]
         return self.list_to_P_ring(coeffs)
+    
+    def eval_negate(self, ek, c):
+        c_1, c_2 = c
+        return (-c_1, -c_2)
     
     def eval_add(self, ek, c1, c2): # -> C_ring
         '''
@@ -219,12 +228,12 @@ class BFV():
         py2 = R(coeff2)
         return py1 * py2
     
-    def eval_mult(self, ek, c1, c2, sk, relin=True): # -> tuple[R_q, R_q]
+    def eval_mult(self, ek, c1, c2, relin=False): # -> tuple[R_q, R_q]
         '''
         If c1 is an encryption of m1 and c2 an encryption of m2,
         outputs a ciphertext encrypting (m1 * m2)
         '''
-        print("In eval_mult...")
+        # print("In eval_mult...")
         # print("c1:", c1)
         # print("c2:", c2)
         # print("t:", self.t)
@@ -246,11 +255,11 @@ class BFV():
         # print("c1: ", ls[1])
         # print("c2: ", ls[2])
         if relin:
-            return self._relinearize(ek, tuple(ls), sk)
+            return self._relinearize(ek, tuple(ls))
         else:
             return tuple(ls)
 
-    def _relinearize(self, ek, c, sk): # C_ring:
+    def _relinearize(self, ek, c): # C_ring:
         c0, c1, c2 = c
         ek1, ek2 = ek
         sk_q = self.R_q(list(sk))
@@ -260,21 +269,19 @@ class BFV():
         print("RHS:", c1_star + c2_star * sk_q)
         return (c0 + ek1 * c2, c1 + ek2 * c2)
 
-    def eval_add_const(self, c, n, pk, ek):
+    def eval_add_const(self, pk, ek, m, c):
         '''
-        Adds the constant integer n to the ciphertext c
+        Adds the constant plaintext m to the ciphertext c
         '''
-        pol = self._polynomialize(n)
-        cons = self.encrypt(pk, pol)
+        cons = self.encrypt(pk, m, add_noise=False)
         return self.eval_add(ek, c, cons)
 
-    def eval_mult_const(self, c, n, pk, ek):
+    def eval_mult_const(self, pk, ek, m, c):
         '''
-        Adds the constant integer n to the ciphertext c
+        Multiplies the constant plaintext m to the ciphertext c
         '''
-        pol = self._polynomialize(n)
-        cons = self.encrypt(pk, pol)
-        return self.eval_mult(ek, c, cons)
+        cons = self.encrypt(pk, m, add_noise=False)
+        return self.eval_mult(ek, c, cons, relin=False)
 
     def _polynomialize(self, n):
         bits = bin(n)[2:]
