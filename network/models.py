@@ -5,6 +5,7 @@ import numpy as np
 from einops import rearrange
 
 from fhe import *
+from fhe_vec import FHE_VEC
 
 
 def scale_round(x, scale):
@@ -30,7 +31,7 @@ class Linear(nn.Module):
 
 
 class FHELinear(nn.Module):
-    def __init__(self, linear: nn.Linear, fhe, scale=100.0):
+    def __init__(self, linear: nn.Linear, fhe: FHE_VEC, scale=100.0):
         super().__init__()
         self.in_dim = linear.in_dim
         self.out_dim = linear.out_dim
@@ -44,10 +45,10 @@ class FHELinear(nn.Module):
             c_x = rearrange(c_x, "i -> 1 i")
         assert (len(c_x.shape) == 2)
         # print("Applying weights")
-        out = self.fhe.matrix_product_const(self.weight, c_x.T).T
+        out = self.fhe.matrix_product_const(c_x, self.weight.T)
         bias = scale_round(self.true_bias, in_scale * self.scale)
         # print("Adding bias")
-        out = self.fhe.add_matrix_vector_const(bias, out)
+        out = self.fhe.add_const(out, bias)
         return out, in_scale * self.scale
 
 

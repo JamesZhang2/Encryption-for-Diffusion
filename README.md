@@ -27,3 +27,7 @@ The diffusion model is based on the classifier-free guidance diffusion model fro
 conda create -n sage python=3.12
 conda activate sage
 ```
+If `OMP: Error #15: Initializing libomp.dylib, but found libomp.dylib already initialized.`
+```bash
+export KMP_DUPLICATE_LIB_OK=TRUE
+```

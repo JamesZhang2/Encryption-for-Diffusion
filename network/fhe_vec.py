@@ -1,8 +1,9 @@
 from bfv.bfv import BFV
 import numpy as np
+from functools import reduce
 
 
-class VEC_FHE:
+class FHE_VEC:
     def __init__(self):
         self.bfv = BFV(n=64, param_t=20, param_q=63)
         self.sk, self.pk, self.ek = self.bfv.key_gen()
@@ -18,9 +19,9 @@ class VEC_FHE:
         c1, c2 = self.bfv.encrypt(self.pk, x_poly)
         return np.array([c1, c2])
 
-    def decrypt(self, x: np.ndarray) -> np.ndarray:
+    def decrypt(self, c: np.ndarray) -> np.ndarray:
         decrypt = np.vectorize(self._decrypt)
-        return decrypt(x)
+        return decrypt(c)
 
     def _decrypt(self, c):
         '''decrypts ciphertext into integer'''
@@ -42,16 +43,18 @@ class VEC_FHE:
 
     def _add(self, c1, c2):
         '''homomorphically adds two ciphertexts'''
-        return self.bfv.eval_add(self.ek, c1, c2)
+        c1, c2 = self.bfv.eval_add(self.ek, c1, c2)
+        return np.array([c1, c2])
 
     def add_const(self, c, p):
+        '''homormophically adds ciphertext c and plaintext p'''
         add_const = np.vectorize(self._add_const)
         return add_const(c, p)
 
     def _add_const(self, c, p):
-        '''homormophically adds ciphertext and integer'''
         poly = self.bfv.encode_int(p, unit=self.unit)
-        return self.bfv.eval_add_const(self.pk, self.ek, poly, c)
+        c1, c2 = self.bfv.eval_add_const(self.pk, self.ek, poly, c)
+        return np.array([c1, c2])
 
     def mult(self, c1, c2):
         mult = np.vectorize(self._mult)
@@ -62,21 +65,21 @@ class VEC_FHE:
         c_triple = self.bfv.eval_mult(self.ek, c1, c2, relin=False)
         plain = self.bfv.decrypt_raw_3(self.sk, c_triple)
         decoded_int = self.bfv.decode_int(plain, unit=self.unit ** 2)
-        encoded_poly = self.bfv.encode_int(decoded_int, unit=self.unit)
-        return self.bfv.encrypt(self.pk, encoded_poly)
+        enc_int = self._encrypt(decoded_int)
+        return enc_int
 
-    def mult_const(self, c, y):
+    def mult_const(self, c, p):
         mult_const = np.vectorize(self._mult_const)
-        return mult_const(c, y)
+        return mult_const(c, p)
 
-    def _mult_const(self, c, y):
+    def _mult_const(self, c, p):
         '''homormophically multiplies ciphertext and integer'''
-        y_poly = self.bfv.encode_int(y, unit=self.unit)
+        y_poly = self.bfv.encode_int(p, unit=self.unit)
         c_triple = self.bfv.eval_mult_const(self.pk, self.ek, y_poly, c)
         plain = self.bfv.decrypt_raw_3(self.sk, c_triple)
         decoded_int = self.bfv.decode_int(plain, unit=self.unit ** 2)
-        encoded_poly = self.bfv.encode_int(decoded_int, unit=self.unit)
-        return self.bfv.encrypt(self.pk, encoded_poly)
+        enc_int = self._encrypt(decoded_int)
+        return enc_int
 
     def pow(self, c, power):
         pow = np.vectorize(self._pow)
@@ -89,11 +92,58 @@ class VEC_FHE:
             return c
         return self.mult(c, pow(c, power=power-1))
 
+    def sum(self, c: np.ndarray):
+        return reduce(self._add, c)
+
+    def dot(self, c1: np.ndarray, c2: np.ndarray):
+        assert len(c1) == len(c2)
+        mults = self.mult(c1, c2)
+        sum = self.sum(mults)
+        return sum
+
+    def dot_const(self, c: np.ndarray, p: np.ndarray):
+        mults = self.mult_const(c, p)
+        sum = self.sum(mults)
+        return sum
+
     def matrix_product(self, c1: np.ndarray, c2: np.ndarray) -> np.ndarray:
-        '''homomorphically multiplies two ciphertexts'''
-        assert c1.shape[1] == c2.shape[0]
-        result = np.zeros((c1.shape[0], c2.shape[1]), dtype=object)
-        for i in range(c1.shape[0]):
-            for j in range(c2.shape[1]):
-                result[i, j] = self.mult(c1[i], c2[:, j])
+        """
+        Homomorphically computes the matrix product of two ciphertext matrices.
+        c1 shape: (m, n, 2)
+        c2 shape: (n, p, 2)
+        Output shape: (m, p, 2)
+        """
+        assert c1.shape[1] == c2.shape[0], f"Dim mismatch of mat shape {c1.shape} and {c2.shape}"
+
+        m, n = c1.shape[0], c2.shape[1]
+
+        result = np.empty((m, n), dtype=object)
+
+        for i in range(m):
+            for j in range(n):
+                row = c1[i]
+                col = c2[:, j]
+                result[i, j] = self.dot(row, col)
+
+        return result
+
+    def matrix_product_const(self, c: np.ndarray, p: np.ndarray) -> np.ndarray:
+        """
+        Homomorphically computes the matrix product of ciphertext and plaintext matrices.
+        ciphertext c shape: (m, p)
+        plaintext p shape: (p, n)
+        Output shape: (m, n)
+        """
+        assert c.shape[1] == p.shape[0], f"Dim mismatch of mat shape {c.shape} and {p.shape}"
+
+        m, n = c.shape[0], p.shape[1]
+
+        result = np.empty((m, n), dtype=object)
+
+        for i in range(m):
+            for j in range(n):
+                row = c[i]
+                col = p[:, j]
+                result[i, j] = self.dot_const(row, col)
+
         return result

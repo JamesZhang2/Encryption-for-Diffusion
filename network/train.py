@@ -15,6 +15,7 @@ from tqdm import tqdm
 import numpy as np
 from sklearn.model_selection import train_test_split
 from fhe import FHE
+from fhe_vec import FHE_VEC
 from models import scale_round
 from sklearn.datasets import load_iris
 
@@ -34,7 +35,7 @@ def download_MNIST():
     return train_ds, test_ds
 
 
-def download_iris():
+def download_IRIS():
     # Load Iris dataset
     iris = load_iris()
     data = iris.data
@@ -151,13 +152,13 @@ def test_fhe(model, fhe: FHE, full_test_ds, batch_size=4, scale=100.0):
 
             print("Got Batch!")
             scale_data = scale_round(data, scale)
-            enc_data = fhe.encrypt_mat(scale_data)
+            enc_data = fhe.encrypt(scale_data)
 
             print("Forwarding through model!")
             enc_output, out_scale = model(enc_data, scale)
 
             print("Decrypting output!")
-            output = fhe.decrypt_mat(enc_output)
+            output = fhe.decrypt(enc_output)
             # output = F.softmax(output, dim=-1)
             pred = np.argmax(output, axis=1).reshape(-1, 1)
             # print("Predictions:", pred)
@@ -178,14 +179,14 @@ if __name__ == "__main__":
     # test(model, test_ds)
 
     model = Linear(4, 3).to(device)
-    train_ds, test_ds = download_iris()
+    train_ds, test_ds = download_IRIS()
     # 1 for debugging purposes
     train(model, train_ds, epochs=100, learning_rate=1e-2)
     test(model, test_ds, batch_size=64)
-    fhe = FHE()
+    fhe = FHE_VEC()
     fhe_model = FHELinear(model, fhe)
     # print("linear model weights", model.linear.weight, model.linear.bias)
     # print("fhe model weights", fhe_model.weight, fhe_model.true_bias)
     test_fhe(fhe_model, fhe, test_ds, batch_size=64, scale=100)
-    test_fhe(fhe_model, fhe, test_ds, batch_size=64, scale=10000)
-    test_fhe(fhe_model, fhe, test_ds, batch_size=64, scale=10000000)
+    # test_fhe(fhe_model, fhe, test_ds, batch_size=64, scale=10000)
+    # test_fhe(fhe_model, fhe, test_ds, batch_size=64, scale=10000000)
