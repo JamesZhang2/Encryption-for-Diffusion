@@ -15,7 +15,10 @@ from sklearn.model_selection import train_test_split
 from fhe import FHE
 from models import scale_round
 from sklearn.datasets import load_iris
-from fhe_vec import FHE_VEC
+from fhe_vec import *
+import cProfile
+import time
+
 
 fhe = FHE()
 fhe_vec = FHE_VEC()
@@ -46,16 +49,20 @@ def test_encrypt_then_decrypt():
 
 def test_matmul():
     print("Running matmul test...")
-    numpy_array1 = np.random.randint(-100, 100, size=(2, 5))
-    numpy_array2 = np.random.randint(-100, 100, size=(5, 3))
+    numpy_array1 = np.random.randint(-100, 100, size=(2, 100))
+    numpy_array2 = np.random.randint(-100, 100, size=(100, 3))
 
     product = np.dot(numpy_array1, numpy_array2)
-
+    print(product)
     a = fhe_vec.encrypt(numpy_array1)
     b = fhe_vec.encrypt(numpy_array2)
+    start = time.time()
     c = fhe_vec.matrix_product(a, b)
+    end = time.time()
     decrypted_product = fhe_vec.decrypt(c)
 
+    print(f"Total runtime: {end - start:.3f} seconds")
+    print(decrypted_product)
     assert np.allclose(
         product, decrypted_product), "Decrypted product does not match the original product"
 
@@ -64,16 +71,21 @@ def test_matmul():
 
 def test_matmul_const():
     print("Running matmul const test...")
-    numpy_array1 = np.random.randint(-100, 100, size=(2, 5))
-    numpy_array2 = np.random.randint(-100, 100, size=(5, 3))
+    numpy_array1 = np.random.randint(-100, 100, size=(5, 10))
+    numpy_array2 = np.random.randint(-100, 100, size=(10, 5))
 
     product = np.dot(numpy_array1, numpy_array2)
-
+    print(product)
     a = fhe_vec.encrypt(numpy_array1)
     b = numpy_array2
+    start = time.time()
     c = fhe_vec.matrix_product_const(a, b)
+    end = time.time()
     decrypted_product = fhe_vec.decrypt(c)
 
+    print(f"Total runtime: {end - start:.3f} seconds")
+
+    # print(decrypted_product)
     assert np.allclose(
         product, decrypted_product), "Decrypted product does not match the original product"
 
@@ -82,8 +94,8 @@ def test_matmul_const():
 
 def test_add():
     print("Running add test...")
-    numpy_array1 = np.random.randint(-100, 100, size=(2, 5))
-    numpy_array2 = np.random.randint(-100, 100, size=(2, 5))
+    numpy_array1 = np.random.randint(-100, 100, size=(2, 1000))
+    numpy_array2 = np.random.randint(-100, 100, size=(2, 1000))
 
     sum = numpy_array1 + numpy_array2
     print(sum)
@@ -101,8 +113,8 @@ def test_add():
 
 def test_add_const():
     print("Running add constant test...")
-    numpy_array1 = np.random.randint(-100, 100, size=(2, 5))
-    numpy_array2 = np.random.randint(-100, 100, size=(2, 5))
+    numpy_array1 = np.random.randint(-100, 100, size=(2, 1000))
+    numpy_array2 = np.random.randint(-100, 100, size=(2, 1000))
 
     sum = numpy_array1 + numpy_array2
     print(sum)
@@ -124,3 +136,10 @@ if __name__ == "__main__":
     test_matmul_const()
     test_add()
     test_add_const()
+    # cProfile.run('test_matmul_const()', sort=2)
+    # start = time.time()
+    # test_add()
+    # test_add_const()
+    # end = time.time()
+
+    # print(f"Total runtime: {end - start:.3f} seconds")

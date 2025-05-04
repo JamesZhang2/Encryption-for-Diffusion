@@ -264,7 +264,7 @@ class BFV():
         else:
             return tuple(ls)
 
-    def _relinearize(self, ek, c):  # C_ring:
+    def _relinearize(self, ek, sk, c):  # C_ring:
         c0, c1, c2 = c
         ek1, ek2 = ek
         sk_q = self.R_q(list(sk))

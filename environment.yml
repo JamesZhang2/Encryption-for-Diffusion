@@ -1,4 +1,4 @@
-name: sage-diffusion
+name: sage-diffusion2
 channels:
   - conda-forge
   - defaults
@@ -247,6 +247,7 @@ dependencies:
   - notebook
   - notebook-shim
   - ntl
+  - numba
   - numpy
   - openblas
   - openjdk

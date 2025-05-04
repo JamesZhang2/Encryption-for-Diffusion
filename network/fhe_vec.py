@@ -4,8 +4,8 @@ from functools import reduce
 
 
 class FHE_VEC:
-    def __init__(self):
-        self.bfv = BFV(n=64, param_t=20, param_q=63)
+    def __init__(self, n=64):
+        self.bfv = BFV(n=n, param_t=20, param_q=63)
         self.sk, self.pk, self.ek = self.bfv.key_gen()
         self.unit = 200
 
@@ -65,8 +65,8 @@ class FHE_VEC:
         c_triple = self.bfv.eval_mult(self.ek, c1, c2, relin=False)
         plain = self.bfv.decrypt_raw_3(self.sk, c_triple)
         decoded_int = self.bfv.decode_int(plain, unit=self.unit ** 2)
-        enc_int = self._encrypt(decoded_int)
-        return enc_int
+        c1, c2 = self._encrypt(decoded_int)
+        return np.array([c1, c2])
 
     def mult_const(self, c, p):
         mult_const = np.vectorize(self._mult_const)
@@ -78,8 +78,8 @@ class FHE_VEC:
         c_triple = self.bfv.eval_mult_const(self.pk, self.ek, y_poly, c)
         plain = self.bfv.decrypt_raw_3(self.sk, c_triple)
         decoded_int = self.bfv.decode_int(plain, unit=self.unit ** 2)
-        enc_int = self._encrypt(decoded_int)
-        return enc_int
+        c1, c2 = self._encrypt(decoded_int)
+        return np.array([c1, c2])
 
     def pow(self, c, power):
         pow = np.vectorize(self._pow)
@@ -93,18 +93,17 @@ class FHE_VEC:
         return self.mult(c, pow(c, power=power-1))
 
     def sum(self, c: np.ndarray):
-        return reduce(self._add, c)
+        c1, c2 = reduce(self._add, c)
+        return np.array([c1, c2])
 
     def dot(self, c1: np.ndarray, c2: np.ndarray):
         assert len(c1) == len(c2)
         mults = self.mult(c1, c2)
-        sum = self.sum(mults)
-        return sum
+        return self.sum(mults)
 
     def dot_const(self, c: np.ndarray, p: np.ndarray):
         mults = self.mult_const(c, p)
-        sum = self.sum(mults)
-        return sum
+        return self.sum(mults)
 
     def matrix_product(self, c1: np.ndarray, c2: np.ndarray) -> np.ndarray:
         """
@@ -115,14 +114,16 @@ class FHE_VEC:
         """
         assert c1.shape[1] == c2.shape[0], f"Dim mismatch of mat shape {c1.shape} and {c2.shape}"
 
-        m, n = c1.shape[0], c2.shape[1]
+        m, p = c1.shape[0], c1.shape[1]
+        _, n = c2.shape[0], c2.shape[1]
 
         result = np.empty((m, n), dtype=object)
 
+        c2_T = c2.T
         for i in range(m):
             for j in range(n):
                 row = c1[i]
-                col = c2[:, j]
+                col = c2_T[j]
                 result[i, j] = self.dot(row, col)
 
         return result
@@ -147,3 +148,5 @@ class FHE_VEC:
                 result[i, j] = self.dot_const(row, col)
 
         return result
+
+# OPT 62.777, 13.324 seconds

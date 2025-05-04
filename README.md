@@ -31,3 +31,5 @@ If `OMP: Error #15: Initializing libomp.dylib, but found libomp.dylib already in
 ```bash
 export KMP_DUPLICATE_LIB_OK=TRUE
 ```
+
+sage -n jupyter
