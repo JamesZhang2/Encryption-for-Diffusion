@@ -2,6 +2,7 @@ import torch
 import random
 from fhe import FHE
 
+
 def encrypt_then_decrypt():
     print("Running encrypt_then_decrypt...")
     max_error = 0
@@ -10,6 +11,7 @@ def encrypt_then_decrypt():
         fhe = FHE()
         max_error = max(max_error, abs(n - fhe.decrypt(fhe.encrypt(n))))
     print("max_error:", max_error)
+
 
 def test_addition():
     print("Running test_addition...")
@@ -24,6 +26,7 @@ def test_addition():
         max_error = max(max_error, abs(fhe.decrypt(enc) - (a1 + a2)))
     print("max_error:", max_error)
 
+
 def test_addition_const():
     print("Running test_addition_const...")
     max_error = 0
@@ -35,6 +38,7 @@ def test_addition_const():
         enc = fhe.add_const(enc1, a2)
         max_error = max(max_error, abs(fhe.decrypt(enc) - (a1 + a2)))
     print("max_error:", max_error)
+
 
 def test_multiplication():
     print("Running test_multiplication...")
@@ -50,6 +54,7 @@ def test_multiplication():
         max_error = max(max_error, abs(fhe.decrypt(enc) - (a1 * a2)))
     print("max_error:", max_error)
 
+
 def test_multiplication_const():
     print("Running test_multiplication_const...")
     max_error = 0
@@ -63,6 +68,7 @@ def test_multiplication_const():
         max_error = max(max_error, abs(fhe.decrypt(enc) - (a1 * a2)))
     print("max_error:", max_error)
 
+
 def run_all_tests():
     encrypt_then_decrypt()
     test_addition()
@@ -70,4 +76,6 @@ def run_all_tests():
     test_addition_const()
     test_multiplication_const()
 
-run_all_tests()
+
+if __name__ == "__main__":
+    run_all_tests()

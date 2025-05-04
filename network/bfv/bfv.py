@@ -4,6 +4,7 @@ from sage.stats.distributions.discrete_gaussian_integer import DiscreteGaussianD
 import sympy
 import random
 
+
 class BFV():
     def __init__(self, n, param_t=None, param_q=None, t=None, q=None):
         '''
@@ -51,7 +52,7 @@ class BFV():
             raise ValueError("Input array is empty")
         xbar = self.P_ring.gen()
         return sum([(arr[i] % self.t) * xbar ** i for i in range(len(arr))])
-    
+
     def list_to_P_ring(self, lst):
         '''
         Converts a Python list to a P_ring element, where lst[i] is the coefficient of x^i
@@ -106,7 +107,7 @@ class BFV():
             lst.append((num % 2) * neg_sign * unit)
             num //= 2
         return self.list_to_P_ring(lst)
-    
+
     def decode_int(self, poly, unit=None) -> int:
         '''
         Decodes a P_ring element to an integer,
@@ -140,9 +141,10 @@ class BFV():
         '''
         Draws a random sample from the error distribution (discrete Gaussian) with the given parameters
         '''
-        sampler = DiscreteGaussianDistributionIntegerSampler(sigma=sigma, c=mu, tau=beta)
+        sampler = DiscreteGaussianDistributionIntegerSampler(
+            sigma=sigma, c=mu, tau=beta)
         return sampler()
-    
+
     def _sample_from_R2(self):
         '''
         Draws a random sample from R_2, a polynomial of degree n with coefficients in [-1, 0, 1]
@@ -151,7 +153,7 @@ class BFV():
 
     ##### Functions for encryption #####
 
-    def key_gen(self): # -> tuple[np.array, C_ring, C_ring]
+    def key_gen(self):  # -> tuple[np.array, C_ring, C_ring]
         '''
         Returns (sk, pk, ek)
         sk (secret key) is in R_2
@@ -160,7 +162,8 @@ class BFV():
         '''
         sk = np.array([np.random.choice([-1, 0, 1]) for _ in range(self.n)])
         xbar = self.R_q.gen()
-        a = sum([random.randint(0, self.q) * (xbar ** i) for i in range(self.n)])
+        a = sum([random.randint(0, self.q) * (xbar ** i)
+                for i in range(self.n)])
         sk_q = self.R_q(list(sk))  # sk cast to R_q
         pk1 = -(a*sk_q + self._sample_error_dtbn())
         pk2 = a
@@ -175,7 +178,7 @@ class BFV():
         ek = (ek1, ek2)
         return (sk, pk, ek)
 
-    def encrypt(self, pk, m, add_noise=True): # -> C_ring
+    def encrypt(self, pk, m, add_noise=True):  # -> C_ring
         '''
         Encrypts m (message) into c (its ciphertext) using pk (the public key)
         We don't need to add noise if we're encrypting a constant for eval_add_const and eval_mult_const
@@ -187,25 +190,26 @@ class BFV():
         if not add_noise:
             c1 = pk1 * u_q + delta * self.R_q(m.list())
             c2 = pk2 * u_q
-        else: 
+        else:
             c1 = pk1 * u_q + self._sample_error_dtbn() + delta * self.R_q(m.list())
             c2 = pk2 * u_q + self._sample_error_dtbn()
         return (c1, c2)
 
-    def decrypt(self, sk, c): # -> P_ring
+    def decrypt(self, sk, c):  # -> P_ring
         '''
         Decrypts c (ciphertext) into m (its message) using sk (the secret key)
         '''
         c1, c2 = c
         sk_q = self.R_q(list(sk))  # sk cast to R_q
-        coeffs = [int(round(int(num) * self.t / self.q)) % self.t for num in (c1 + c2 * sk_q).list()]
+        coeffs = [int(round(int(num) * self.t / self.q)) %
+                  self.t for num in list(c1 + c2 * sk_q)]
         return self.list_to_P_ring(coeffs)
-    
+
     def eval_negate(self, ek, c):
         c_1, c_2 = c
         return (-c_1, -c_2)
-    
-    def eval_add(self, ek, c1, c2): # -> C_ring
+
+    def eval_add(self, ek, c1, c2):  # -> C_ring
         '''
         If c1 is an encryption of m1 and c2 is an encryption of m2,
         outputs a ciphertext c3 encrypting (m1 + m2)
@@ -227,8 +231,8 @@ class BFV():
         py1 = R(coeff1)
         py2 = R(coeff2)
         return py1 * py2
-    
-    def eval_mult(self, ek, c1, c2, relin=False): # -> tuple[R_q, R_q]
+
+    def eval_mult(self, ek, c1, c2, relin=False):  # -> tuple[R_q, R_q]
         '''
         If c1 is an encryption of m1 and c2 an encryption of m2,
         outputs a ciphertext encrypting (m1 * m2)
@@ -241,10 +245,11 @@ class BFV():
         ls = []
         xbar = self.R_q.gen()
         for i in range(3):
-            if i==0:
+            if i == 0:
                 p_R = self._mult_without_mod_q(c1[0], c2[0])
-            elif i==1:
-                p_R = self._mult_without_mod_q(c1[0], c2[1]) + self._mult_without_mod_q(c1[1], c2[0])
+            elif i == 1:
+                p_R = self._mult_without_mod_q(
+                    c1[0], c2[1]) + self._mult_without_mod_q(c1[1], c2[0])
             else:
                 p_R = self._mult_without_mod_q(c1[1], c2[1])
             coeffs = [int(round(int(c * self.t) / self.q)) for c in list(p_R)]
@@ -259,7 +264,7 @@ class BFV():
         else:
             return tuple(ls)
 
-    def _relinearize(self, ek, c): # C_ring:
+    def _relinearize(self, ek, c):  # C_ring:
         c0, c1, c2 = c
         ek1, ek2 = ek
         sk_q = self.R_q(list(sk))
@@ -288,7 +293,6 @@ class BFV():
         coeffs = [int(b) for b in reversed(bits)]
         return self.P_ring(coeffs)
 
-
     def decrypt_raw_3(self, sk, ct3):
         c0, c1, c2 = ct3
         sk_q = self.R_q(list(sk))
@@ -296,6 +300,3 @@ class BFV():
 
         coeffs = [int(round(int(c) * self.t / self.q)) for c in list(m_poly)]
         return self.list_to_P_ring(coeffs)
-    
-
-

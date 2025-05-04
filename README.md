@@ -21,3 +21,9 @@ conda env create -f environment_mac.yml
 conda activate diffusion
 ```
 The diffusion model is based on the classifier-free guidance diffusion model from this tutorial: <https://github.com/tsmatz/diffusion-tutorials/blob/master/Readme.md>
+
+## Network
+```bash
+conda create -n sage python=3.12
+conda activate sage
+```

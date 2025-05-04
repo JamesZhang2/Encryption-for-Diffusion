@@ -1,13 +1,19 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import numpy as np
 from einops import rearrange
 
 from fhe import *
 
 
 def scale_round(x, scale):
-    return torch.round(x * scale).long()
+    if isinstance(x, torch.Tensor):
+        return torch.round(x * scale).long()
+    elif isinstance(x, np.ndarray):
+        return np.round(x * scale).astype(np.int64)
+    else:
+        return int(round(x * scale))
 
 
 class Linear(nn.Module):
@@ -29,18 +35,19 @@ class FHELinear(nn.Module):
         self.in_dim = linear.in_dim
         self.out_dim = linear.out_dim
         self.scale = scale
-        self.true_bias = linear.linear.bias
+        self.true_bias = linear.linear.bias.detach().numpy()
         self.fhe = fhe
-        self.weight = scale_round(linear.linear.weight, scale)
+        self.weight = scale_round(linear.linear.weight.detach().numpy(), scale)
 
     def forward(self, c_x, in_scale):  # assume input is encrypted
         if len(c_x.shape) == 1:
             c_x = rearrange(c_x, "i -> 1 i")
         assert (len(c_x.shape) == 2)
-        out = self.fhe.matrix_product(self.weight, c_x.T).T
-        bias = self.fhe.enc_vec(scale_round(
-            self.true_bias, in_scale * self.scale))
-        out = self.fhe.add_matrix_vector(out, bias)
+        # print("Applying weights")
+        out = self.fhe.matrix_product_const(self.weight, c_x.T).T
+        bias = scale_round(self.true_bias, in_scale * self.scale)
+        # print("Adding bias")
+        out = self.fhe.add_matrix_vector_const(bias, out)
         return out, in_scale * self.scale
 
 
