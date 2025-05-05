@@ -6,3 +6,6 @@ diffusion/data/*
 
 *.DS_Store
 *__pycache__/
+
+network/.ipynb_checkpoints
+network/bfv/__pycache__

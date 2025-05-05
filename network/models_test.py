@@ -131,15 +131,14 @@ def test_add_const():
 
 
 if __name__ == "__main__":
-    test_encrypt_then_decrypt()
-    test_matmul()
-    test_matmul_const()
-    test_add()
-    test_add_const()
-    # cProfile.run('test_matmul_const()', sort=2)
-    # start = time.time()
+    # test_encrypt_then_decrypt()
+    # test_matmul()
+    # test_matmul_const()
     # test_add()
     # test_add_const()
-    # end = time.time()
+    # cProfile.run('test_matmul_const()', sort=2)
+    start = time.time()
+    test_matmul()
+    end = time.time()
 
-    # print(f"Total runtime: {end - start:.3f} seconds")
+    print(f"Total runtime: {end - start:.3f} seconds")
